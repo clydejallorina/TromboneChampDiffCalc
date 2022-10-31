@@ -126,7 +126,7 @@ def calc_diff(tmb:TMBChart) -> float:
     logging.info("Culled %d data points for aim, %d points remain",
                  len(aim_performance) - len(culled_aim),
                  len(culled_aim))
-    aim_rating = np.average(culled_aim, weights=[abs(x - aim_average) for x in culled_aim])
+    aim_rating = np.average(culled_aim, weights=[1 - (abs(point - aim_average) / aim_std) for point in culled_aim])
     
     # Calculate speed rating
     speed_performance = []
