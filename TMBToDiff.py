@@ -104,7 +104,7 @@ def calc_diff(tmb:TMBChart) -> float:
     start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
-    bpm_multiplier = 1.25 / (1 + math.pow(math.e, -0.03 * (tmb.tempo - 150)))
+    bpm_multiplier = (1.25 / (1 + math.pow(math.e, -0.015 * (tmb.tempo - 150)))) + 0.25
     
     # Calculate aim rating
     aim_performance = [] # List containing the estimated aim performance for the note
