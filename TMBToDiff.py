@@ -120,13 +120,13 @@ def calc_diff(tmb:TMBChart) -> float:
     aim_performance.sort()
     top_aim_strains = aim_performance[-10:]
     aim_average = np.mean(aim_performance)
-    aim_std = np.std(aim_performance) * 1 # standard deviation
+    aim_std = np.std(aim_performance) * 2 # standard deviation
     culled_aim = [x for x in aim_performance if x <= aim_average + aim_std]
     logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_aim_strains))
     logging.info("Culled %d data points for aim, %d points remain",
                  len(aim_performance) - len(culled_aim),
                  len(culled_aim))
-    aim_rating = np.average(culled_aim, weights=[1 - (abs(point - aim_average) / aim_std) for point in culled_aim])
+    aim_rating = np.average(culled_aim, weights=[2 - (abs(point - aim_average) / aim_std) for point in culled_aim])
     
     # Calculate speed rating
     speed_performance = []

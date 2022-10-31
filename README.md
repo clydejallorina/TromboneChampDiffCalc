@@ -19,18 +19,19 @@ For this one, I've simply taken the maximum amount of buttons that would need to
 
 Result Format: `[Name of Track] ([Mapper-Estimated Difficulty]): [Algorithm-Estimated Difficulty]`
 
-Tests as of 2022-10-31T07:23:15+0:00
+Tests as of 2022-10-31T16:22:43+0:00
 
 ```
-BIG SHOT (8): 5.251091171147717
-Fly me to the moon (5): 3.0599958889675483
-Friday Night (6): 4.34950469474435
-Gourmet Race (8): 8.188087013764193
-Megalovania (Trombone Champ Remix) (10): 8.74623378557948
-Meikaruza (Instrumental) (10): 9.157682467728907
-Rick AStley - Never Gonna Give You Up (7): 3.4486365721015377
-Rainbow Tylenol (19): 8.616013394475639
-RuneScapeSeaShanty2 (6): 6.802765318582144
-Through the Fire and Flames (10): 9.50882653840689
-We Are Number One (6): 5.50876705032371
+BIG SHOT (8): 2.959314619621916
+Fly me to the moon (5): 1.1444306466145506
+Freedom Dive (10): 20.558646612308518
+Friday Night (6): 1.8780868649372384
+Gourmet Race (8): 7.890288684923564
+Megalovania (Trombone Champ Remix) (10): 9.727091045261574
+Meikaruza (Instrumental) (10): 11.10967450888576
+Rick AStley - Never Gonna Give You Up (7): 1.1944344105343228
+Rainbow Tylenol (19): 4.708356009459907
+RuneScapeSeaShanty2 (6): 6.967941992187273
+Through the Fire and Flames (10): 9.759569284289979
+We Are Number One (6): 4.150903241003832
 ```
