@@ -1,14 +1,11 @@
-from dataclasses import dataclass
 import json
 import math
-import statistics as stat
-import numpy as np
 import os
 import logging
-from pprint import pprint
 import argparse
-
+from dataclasses import dataclass
 from typing import Optional
+import numpy as np
 
 @dataclass
 class TMBChart:
@@ -28,10 +25,10 @@ class TMBChart:
     tempo: int # bpm
     lyrics: list
     notes: list # list of 5-tuples
-    
+
     def __str__(self) -> str:
         return f"{self.name} ({self.difficulty})"
-    
+
     def __repr__(self) -> str:
         return f"TMBChart({self.name})"
 
@@ -42,7 +39,7 @@ def read_tmb(filename:str) -> Optional[TMBChart]:
     if not os.path.exists(filename):
         logging.error("File doesn't exist!")
         return None
-    with open(filename) as file:
+    with open(filename, encoding="utf-8") as file:
         tmb_file = json.load(file)
         return TMBChart(
             name=tmb_file["name"],
@@ -60,7 +57,7 @@ def read_tmb(filename:str) -> Optional[TMBChart]:
             lyrics=tmb_file["lyrics"],
             notes=tmb_file["notes"],
         )
-        
+
 def b2s(time:float, bpm:int) -> float:
     # Shorthand for beat to seconds
     return round((time / bpm) * 60, 4)
@@ -123,8 +120,10 @@ def calc_diff(tmb:TMBChart) -> float:
     aim_average = np.mean(aim_performance)
     aim_std = np.std(aim_performance) * 1.5 # standard deviation
     culled_aim = [x for x in aim_performance if x <= aim_average + aim_std]
-    logging.info(f"Top Aim Strains for {tmb.name}:\n{top_aim_strains}\n")
-    logging.info(f"Culled {len(aim_performance) - len(culled_aim)} data points for aim, {len(culled_aim)} points remain")
+    logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_aim_strains))
+    logging.info("Culled %d data points for aim, %d points remain",
+                 len(aim_performance) - len(culled_aim),
+                 len(culled_aim))
     aim_rating = np.average(culled_aim) * bpm_multiplier
     
     # Calculate speed rating
@@ -141,9 +140,12 @@ def calc_diff(tmb:TMBChart) -> float:
     speed_average = np.mean(speed_performance)
     speed_std = np.std(speed_performance) * 1.5 # standard deviation
     culled_speed = [x for x in speed_performance if x <= speed_average + speed_std]
-    logging.info(f"Top Speed Strains for {tmb.name}:\n{top_speed_strains}\n")
-    logging.info(f"Culled {len(speed_performance) - len(culled_speed)} data points for speed, {len(culled_speed)} points remain")
+    logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_speed_strains))
+    logging.info("Culled %d data points for speed, %d points remain",
+                 len(speed_performance) - len(culled_speed),
+                 len(culled_speed))
     speed_rating = np.average(culled_speed) * bpm_multiplier
+    logging.info("Speed Rating: %f | Aim Rating: %f\n", speed_rating, aim_rating)
     
     return cap_result(np.average([aim_rating, speed_rating], weights=[1,5]))
 
