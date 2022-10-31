@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import json
 import math
+import statistics as stat
 import numpy as np
 import os
 import logging
@@ -89,7 +90,7 @@ def stitch_notes(notes:list, bpm:int) -> list:
 def turn_to_seconds(notes:list, bpm:int) -> list:
     new_notes = []
     for note in notes:
-        new_notes.append([b2s(note[0], bpm)] + note[1:])
+        new_notes.append([b2s(note[0], bpm), b2s(note[0] + note[1], bpm)] + note[2:])
     return new_notes
 
 def speed_strain(delta_time:float) -> float:
@@ -97,6 +98,9 @@ def speed_strain(delta_time:float) -> float:
 
 def aim_strain(delta_time:float, distance:float) -> float:
     return (distance / 165) * (np.cbrt(-delta_time / 5) + 1)
+
+def cap_result(uncapped:float) -> float:
+    return 2.5 * np.sqrt(uncapped)
 
 def calc_diff(tmb:TMBChart) -> float:
     taps = stitch_notes(tmb.notes, tmb.tempo)
@@ -111,12 +115,17 @@ def calc_diff(tmb:TMBChart) -> float:
         dist = 0
         while i > 0 and note[0] - converted[i][0] <= 5.0:
             dist += abs(converted[i][3]) + abs(converted[i-1][4] - converted[i][2]) # Slider delta + Note delta
-            strain += aim_strain(note[0] - converted[i][0], dist)
+            strain += aim_strain(note[0] - converted[i][1], dist)
             i -= 1
         aim_performance.append(strain)
-    top_aim_strains = np.partition(aim_performance, -10)[-10:]
+    aim_performance.sort(reverse=True)
+    top_aim_strains = aim_performance[:10]
+    aim_average = np.mean(aim_performance)
+    aim_std = np.std(aim_performance) * 1.5 # standard deviation
+    culled_aim = [x for x in aim_performance if x <= aim_average + aim_std]
     logging.info(f"Top Aim Strains for {tmb.name}:\n{top_aim_strains}\n")
-    aim_rating = np.average(top_aim_strains, weights=[3,5,5,4,4,3,3,2,1,1]) * bpm_multiplier
+    logging.info(f"Culled {len(aim_performance) - len(culled_aim)} data points for aim, {len(culled_aim)} points remain")
+    aim_rating = np.average(culled_aim) * bpm_multiplier
     
     # Calculate speed rating
     speed_performance = []
@@ -124,14 +133,19 @@ def calc_diff(tmb:TMBChart) -> float:
         i = idx - 1
         strain = 0
         while i >= 0 and note[0] - taps[i][0] <= 5.0:
-            strain += speed_strain(note[0] - taps[i][0])
+            strain += speed_strain(note[0] - taps[i][1])
             i -= 1
         speed_performance.append(strain)
-    top_speed_strains = np.partition(speed_performance, -10)[-10:]
+    speed_performance.sort(reverse=True)
+    top_speed_strains = speed_performance[:10]
+    speed_average = np.mean(speed_performance)
+    speed_std = np.std(speed_performance) * 1.5 # standard deviation
+    culled_speed = [x for x in speed_performance if x <= speed_average + speed_std]
     logging.info(f"Top Speed Strains for {tmb.name}:\n{top_speed_strains}\n")
-    speed_rating = np.average(top_speed_strains, weights=[3,5,5,4,4,3,3,2,1,1]) * bpm_multiplier
+    logging.info(f"Culled {len(speed_performance) - len(culled_speed)} data points for speed, {len(culled_speed)} points remain")
+    speed_rating = np.average(culled_speed) * bpm_multiplier
     
-    return np.average([aim_rating, speed_rating], weights=[1,2])
+    return cap_result(np.average([aim_rating, speed_rating], weights=[1,5]))
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
