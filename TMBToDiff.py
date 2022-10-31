@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 from dataclasses import dataclass
+from time import time
 from typing import Optional
 import numpy as np
 
@@ -100,6 +101,7 @@ def cap_result(uncapped:float) -> float:
     return 2.5 * np.sqrt(uncapped)
 
 def calc_diff(tmb:TMBChart) -> float:
+    start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
     bpm_multiplier = 1.25 / (1 + math.pow(math.e, -0.03 * (tmb.tempo - 150)))
@@ -115,16 +117,16 @@ def calc_diff(tmb:TMBChart) -> float:
             strain += aim_strain(note[0] - converted[i][1], dist)
             i -= 1
         aim_performance.append(strain)
-    aim_performance.sort(reverse=True)
-    top_aim_strains = aim_performance[:10]
+    aim_performance.sort()
+    top_aim_strains = aim_performance[-10:]
     aim_average = np.mean(aim_performance)
-    aim_std = np.std(aim_performance) * 1.5 # standard deviation
+    aim_std = np.std(aim_performance) * 1 # standard deviation
     culled_aim = [x for x in aim_performance if x <= aim_average + aim_std]
     logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_aim_strains))
     logging.info("Culled %d data points for aim, %d points remain",
                  len(aim_performance) - len(culled_aim),
                  len(culled_aim))
-    aim_rating = np.average(culled_aim) * bpm_multiplier
+    aim_rating = np.average(culled_aim, weights=[abs(x - aim_average) for x in culled_aim])
     
     # Calculate speed rating
     speed_performance = []
@@ -135,19 +137,21 @@ def calc_diff(tmb:TMBChart) -> float:
             strain += speed_strain(note[0] - taps[i][1])
             i -= 1
         speed_performance.append(strain)
-    speed_performance.sort(reverse=True)
-    top_speed_strains = speed_performance[:10]
+    speed_performance.sort()
+    top_speed_strains = speed_performance[-10:]
     speed_average = np.mean(speed_performance)
     speed_std = np.std(speed_performance) * 1.5 # standard deviation
     culled_speed = [x for x in speed_performance if x <= speed_average + speed_std]
-    logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_speed_strains))
+    logging.info("Top Speed Strains for %s:\n%s", tmb.name, str(top_speed_strains))
     logging.info("Culled %d data points for speed, %d points remain",
                  len(speed_performance) - len(culled_speed),
                  len(culled_speed))
     speed_rating = np.average(culled_speed) * bpm_multiplier
-    logging.info("Speed Rating: %f | Aim Rating: %f\n", speed_rating, aim_rating)
+    end_time = time()
+    logging.info("Speed Rating: %f | Aim Rating: %f", speed_rating, aim_rating)
+    logging.info("Calculation took %f seconds\n", end_time - start_time)
     
-    return cap_result(np.average([aim_rating, speed_rating], weights=[1,5]))
+    return cap_result(np.average([aim_rating, speed_rating], weights=[1,5])) * bpm_multiplier
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
