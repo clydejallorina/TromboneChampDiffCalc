@@ -148,10 +148,10 @@ def calc_diff(tmb:TMBChart) -> float:
                  len(culled_speed))
     speed_rating = np.average(culled_speed) * bpm_multiplier
     end_time = time()
-    logging.info("Speed Rating: %f | Aim Rating: %f", speed_rating, aim_rating)
+    logging.info("Speed Rating: %f | Aim Rating: %f | BPM Multiplier: %f", speed_rating, aim_rating, bpm_multiplier)
     logging.info("Calculation took %f seconds\n", end_time - start_time)
     
-    return cap_result(np.average([aim_rating, speed_rating], weights=[1,5])) * bpm_multiplier
+    return cap_result(np.average([aim_rating, speed_rating], weights=[1,3]) * bpm_multiplier)
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
