@@ -21,6 +21,7 @@ For this one, I've simply taken the maximum amount of buttons that would need to
 +-----------------------------+----------+---------------+--------------+------------+
 |          Song Name          | Map Diff | Computed Diff | Speed Rating | Aim Rating |
 +-----------------------------+----------+---------------+--------------+------------+
+|         A Long Fall         |    6     |      6.851221 |     4.491651 |   8.516486 |
 |          BIG SHOT           |    8     |      6.675562 |     6.726129 |   7.264758 |
 |         DRAGONLADY          |    9     |     10.643551 |    16.932243 |  18.523426 |
 |     Fly me to the moon      |    5     |      4.396899 |     1.896726 |   3.492072 |
@@ -30,13 +31,15 @@ For this one, I've simply taken the maximum amount of buttons that would need to
 |         Megalovania         |    10    |      8.782543 |     7.378212 |  13.995650 |
 |          Meikaruza          |    10    |      9.528542 |    16.735297 |  13.790765 |
 |   Never Gonna Give You Up   |    7     |      5.348764 |     4.307680 |   4.667420 |
+|      Next Color Planet      |    8     |      6.625879 |     4.415193 |   7.894088 |
 |      Night of Knights       |    10    |      9.544479 |    19.196664 |  13.035157 |
 |       Rainbow Tylenol       |    19    |     11.874849 |    36.379381 |  17.956106 |
 |         Rockefeller         |    7     |      6.333868 |     1.981651 |   7.897931 |
 |        Sea Shanty 2         |    6     |      6.946442 |     5.165613 |   8.572115 |
 |     Thru Fire & Flames      |    10    |     10.116112 |    24.248879 |  13.748660 |
 |      We Are Number One      |    6     |      6.213166 |     5.142399 |   6.521266 |
+|         White Sedan         |    1     |      4.044058 |     0.527501 |   3.313106 |
 +-----------------------------+----------+---------------+--------------+------------+
-Report generated at Tue Nov  1 10:47:35 2022
-Generated in 1.547451 seconds
+Report generated at Tue Nov  1 11:30:47 2022
+Generated in 1.663024 seconds
 ```
