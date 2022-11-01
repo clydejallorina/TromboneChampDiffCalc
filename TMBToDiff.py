@@ -112,9 +112,15 @@ def calc_diff(tmb:TMBChart) -> float:
         i = idx - 1
         strain = 0
         dist = 0
+        prev_strain = 0
         while i > 0 and note[0] - converted[i][0] <= 5.0:
             dist += abs(converted[i][3]) + abs(converted[i-1][4] - converted[i][2]) # Slider delta + Note delta
-            strain += aim_strain(note[0] - converted[i][1], dist)
+            calculated_strain = aim_strain(note[0] - converted[i][1], dist)
+            if prev_strain == 0:
+                strain += calculated_strain
+            else:
+                strain += calculated_strain * (calculated_strain / prev_strain)
+            prev_strain = calculated_strain
             i -= 1
         aim_performance.append(strain)
     aim_performance.sort()
@@ -151,7 +157,7 @@ def calc_diff(tmb:TMBChart) -> float:
     logging.info("Speed Rating: %f | Aim Rating: %f | BPM Multiplier: %f", speed_rating, aim_rating, bpm_multiplier)
     logging.info("Calculation took %f seconds\n", end_time - start_time)
     
-    return cap_result(np.average([aim_rating, speed_rating], weights=[1,3]) * bpm_multiplier)
+    return [cap_result(np.average([aim_rating, speed_rating], weights=[1,3])), aim_rating, speed_rating]
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
