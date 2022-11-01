@@ -22,24 +22,24 @@ For this one, I've simply taken the maximum amount of buttons that would need to
 |          Song Name          | Map Diff | Computed Diff | Speed Rating | Aim Rating |
 +-----------------------------+----------+---------------+--------------+------------+
 |         A Long Fall         |    6     |      6.851221 |     4.491651 |   8.516486 |
-|          BIG SHOT           |    8     |      6.675562 |     6.726129 |   7.264758 |
-|         DRAGONLADY          |    9     |     10.643551 |    16.932243 |  18.523426 |
-|     Fly me to the moon      |    5     |      4.396899 |     1.896726 |   3.492072 |
-|        Freedom Dive         |    10    |     19.463868 |   101.940480 |  46.839499 |
-|        Friday Night         |    6     |      5.936264 |     3.725163 |   6.275982 |
-|        Gourmet Race         |    8     |      8.407158 |     6.783741 |  12.817220 |
-|         Megalovania         |    10    |      8.782543 |     7.378212 |  13.995650 |
-|          Meikaruza          |    10    |      9.528542 |    16.735297 |  13.790765 |
-|   Never Gonna Give You Up   |    7     |      5.348764 |     4.307680 |   4.667420 |
-|      Next Color Planet      |    8     |      6.625879 |     4.415193 |   7.894088 |
-|      Night of Knights       |    10    |      9.544479 |    19.196664 |  13.035157 |
-|       Rainbow Tylenol       |    19    |     11.874849 |    36.379381 |  17.956106 |
-|         Rockefeller         |    7     |      6.333868 |     1.981651 |   7.897931 |
-|        Sea Shanty 2         |    6     |      6.946442 |     5.165613 |   8.572115 |
+|          BIG SHOT           |    8     |      6.672930 |     6.726129 |   7.264758 |
+|         DRAGONLADY          |    9     |     10.510733 |    16.932243 |  18.523426 |
+|     Fly me to the moon      |    5     |      4.395655 |     1.896726 |   3.492072 |
+|        Freedom Dive         |    10    |     19.463866 |   101.940480 |  46.839499 |
+|        Friday Night         |    6     |      5.830265 |     3.725163 |   6.275982 |
+|        Gourmet Race         |    8     |      7.783283 |     6.783741 |  12.817220 |
+|         Megalovania         |    10    |      8.782222 |     7.378212 |  13.995650 |
+|          Meikaruza          |    10    |      9.528532 |    16.735297 |  13.790765 |
+|   Never Gonna Give You Up   |    7     |      5.348740 |     4.307680 |   4.667420 |
+|      Next Color Planet      |    8     |      6.625878 |     4.415193 |   7.894088 |
+|      Night of Knights       |    10    |      9.507778 |    19.196664 |  13.035157 |
+|       Rainbow Tylenol       |    19    |     11.830835 |    36.379381 |  17.956106 |
+|         Rockefeller         |    7     |      6.331517 |     1.981651 |   7.897931 |
+|        Sea Shanty 2         |    6     |      6.938869 |     5.165613 |   8.572115 |
 |     Thru Fire & Flames      |    10    |     10.116112 |    24.248879 |  13.748660 |
-|      We Are Number One      |    6     |      6.213166 |     5.142399 |   6.521266 |
-|         White Sedan         |    1     |      4.044058 |     0.527501 |   3.313106 |
+|      We Are Number One      |    6     |      6.211225 |     5.142399 |   6.521266 |
+|         White Sedan         |    1     |      1.397637 |     0.527501 |   3.313106 |
 +-----------------------------+----------+---------------+--------------+------------+
-Report generated at Tue Nov  1 11:30:47 2022
-Generated in 1.663024 seconds
+Report generated at Tue Nov  1 16:21:31 2022
+Generated in 1.656676 seconds
 ```

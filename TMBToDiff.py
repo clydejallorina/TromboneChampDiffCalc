@@ -112,6 +112,8 @@ def calc_diff(tmb:Optional[TMBChart]) -> float:
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
     bpm_multiplier = (1.25 / (1 + math.pow(math.e, -0.015 * (tmb.tempo - 150)))) + 0.25
+    time_multiplier = (0.9 / (1 + math.pow(math.e, -0.07 * (taps[-1][1] - 30)))) + 0.1 # nerf diff for short charts
+    logging.info("Song Length: %f", taps[-1][2])
     
     # Calculate aim rating
     aim_performance = [] # List containing the estimated aim performance for the note
@@ -164,7 +166,7 @@ def calc_diff(tmb:Optional[TMBChart]) -> float:
     logging.info("Speed Rating: %f | Aim Rating: %f | BPM Multiplier: %f", speed_rating, aim_rating, bpm_multiplier)
     logging.info("Calculation took %f seconds\n", end_time - start_time)
     
-    return [cap_result(np.average([aim_rating, speed_rating], weights=[1,3])), aim_rating, speed_rating]
+    return [cap_result(np.average([aim_rating, speed_rating], weights=[1,3])) * time_multiplier, aim_rating, speed_rating]
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
