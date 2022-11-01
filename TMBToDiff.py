@@ -41,7 +41,11 @@ def read_tmb(filename:str) -> Optional[TMBChart]:
         logging.error("File doesn't exist!")
         return None
     with open(filename, encoding="utf-8") as file:
-        tmb_file = json.load(file)
+        try:
+            tmb_file = json.load(file)
+        except:
+            logging.error("File parsing failed for %s", filename)
+            return None
         return TMBChart(
             name=tmb_file["name"],
             short_name=tmb_file["shortName"],
@@ -100,7 +104,10 @@ def aim_strain(delta_time:float, distance:float) -> float:
 def cap_result(uncapped:float) -> float:
     return 2.5 * np.sqrt(uncapped)
 
-def calc_diff(tmb:TMBChart) -> float:
+def calc_diff(tmb:Optional[TMBChart]) -> float:
+    if tmb == None:
+        logging.error("TMB Chart is None, returning 0")
+        return 0
     start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
