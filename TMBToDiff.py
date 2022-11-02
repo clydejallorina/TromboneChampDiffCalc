@@ -32,6 +32,29 @@ class TMBChart:
 
     def __repr__(self) -> str:
         return f"TMBChart({self.name})"
+    
+def json_to_tmb(json_string:str):
+    try:
+        tmb_file = json.loads(json_string)
+    except Exception as e:
+        logging.error("Parsing failed!")
+        return None
+    return TMBChart(
+        name=tmb_file["name"],
+        short_name=tmb_file["shortName"],
+        track_ref=tmb_file["trackRef"],
+        year=tmb_file["year"],
+        author=tmb_file["author"],
+        genre=tmb_file["genre"],
+        description=tmb_file["description"],
+        difficulty=tmb_file["difficulty"],
+        saved_note_spacing=tmb_file["savednotespacing"],
+        endpoint=tmb_file["endpoint"],
+        timesig=tmb_file["timesig"],
+        tempo=tmb_file["tempo"],
+        lyrics=tmb_file["lyrics"],
+        notes=tmb_file["notes"],
+    )
 
 def read_tmb(filename:str) -> Optional[TMBChart]:
     if not filename.endswith(".tmb"):
@@ -41,27 +64,11 @@ def read_tmb(filename:str) -> Optional[TMBChart]:
         logging.error("File doesn't exist!")
         return None
     with open(filename, encoding="utf-8") as file:
-        try:
-            tmb_file = json.load(file)
-        except:
-            logging.error("File parsing failed for %s", filename)
+        tmb = json_to_tmb(file.read())
+        if tmb == None:
+            logging.error("Parsing failed for %s", filename)
             return None
-        return TMBChart(
-            name=tmb_file["name"],
-            short_name=tmb_file["shortName"],
-            track_ref=tmb_file["trackRef"],
-            year=tmb_file["year"],
-            author=tmb_file["author"],
-            genre=tmb_file["genre"],
-            description=tmb_file["description"],
-            difficulty=tmb_file["difficulty"],
-            saved_note_spacing=tmb_file["savednotespacing"],
-            endpoint=tmb_file["endpoint"],
-            timesig=tmb_file["timesig"],
-            tempo=tmb_file["tempo"],
-            lyrics=tmb_file["lyrics"],
-            notes=tmb_file["notes"],
-        )
+        return tmb
 
 def b2s(time:float, bpm:int) -> float:
     # Shorthand for beat to seconds
@@ -104,10 +111,10 @@ def aim_strain(delta_time:float, distance:float) -> float:
 def cap_result(uncapped:float) -> float:
     return 2.5 * np.sqrt(uncapped)
 
-def calc_diff(tmb:Optional[TMBChart]) -> float:
+def calc_diff(tmb:Optional[TMBChart]) -> list:
     if tmb == None:
         logging.error("TMB Chart is None, returning 0")
-        return 0
+        return [0,0,0]
     start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
