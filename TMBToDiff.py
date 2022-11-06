@@ -175,6 +175,11 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     
     return [cap_result(np.average([aim_rating, speed_rating], weights=[1,3])) * time_multiplier, aim_rating, speed_rating]
 
+def calc_tt(tmb:TMBChart, aim_rating:float, spd_rating:float) -> float:
+    song_length = b2s(tmb.notes[-1][1], tmb.tempo) - b2s(tmb.notes[0][0], tmb.tempo)
+    length_multiplier = (0.9 / (1 + math.pow(math.e, -0.08 * (song_length - 30)))) + 0.1
+    return (math.pow(np.average([aim_rating, spd_rating], weights=[1,3]), 1/1.25)) * length_multiplier * 100
+
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
 
