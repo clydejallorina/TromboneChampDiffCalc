@@ -189,4 +189,5 @@ if __name__ == "__main__":
     parser.add_argument("filename", metavar="filename", type=str, help="Target .tmb to analyze")
     args = parser.parse_args()
     tmb = read_tmb(args.filename)
-    print(f"{tmb}: {round(calc_diff(tmb), 3)}")
+    diff, aim, spd = calc_diff(tmb)
+    print(f"{tmb}: {round(diff, 3)} [Aim: {round(aim, 3)}|Speed: {round(spd, 3)}]")
