@@ -109,7 +109,7 @@ def aim_strain(delta_time:float, distance:float) -> float:
     return (distance / 165) * (np.cbrt(-delta_time / 5) + 1)
 
 def cap_result(uncapped:float) -> float:
-    return 2.5 * np.sqrt(uncapped)
+    return uncapped if uncapped <= 5 else (2.5 * np.sqrt((uncapped - 5) / 2.25)) + 5
 
 def calc_diff(tmb:Optional[TMBChart]) -> list:
     if tmb == None:
@@ -118,8 +118,7 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
-    bpm_multiplier = (1.25 / (1 + math.pow(math.e, -0.015 * (tmb.tempo - 150)))) + 0.25
-    time_multiplier = (0.9 / (1 + math.pow(math.e, -0.08 * ((taps[-1][1] - taps[0][0]) - 30)))) + 0.1 # nerf diff for short charts
+    time_multiplier = (0.25 / (1 + math.pow(math.e, -0.08 * ((taps[-1][1] - taps[0][0]) - 30)))) + 0.75 # nerf diff for short charts
     logging.info("Song Length: %f", taps[-1][1] - taps[0][0])
     
     # Calculate aim rating
@@ -162,23 +161,24 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     speed_performance.sort()
     top_speed_strains = speed_performance[-10:]
     speed_average = np.mean(speed_performance)
-    speed_std = np.std(speed_performance) * 1.5 # standard deviation
+    speed_std = np.std(speed_performance) * 2 # standard deviation
     culled_speed = [x for x in speed_performance if x <= speed_average + speed_std]
     logging.info("Top Speed Strains for %s:\n%s", tmb.name, str(top_speed_strains))
     logging.info("Culled %d data points for speed, %d points remain",
                  len(speed_performance) - len(culled_speed),
                  len(culled_speed))
-    speed_rating = np.average(culled_speed) * bpm_multiplier
+    speed_rating = np.average(culled_speed, weights=[2 - (abs(point - speed_average) / speed_std) for point in culled_speed])
     end_time = time()
-    logging.info("Speed Rating: %f | Aim Rating: %f | BPM Multiplier: %f", speed_rating, aim_rating, bpm_multiplier)
+    logging.info("Speed Average: %f | Aim Average: %f", speed_average, aim_average)
+    logging.info("Speed Rating: %f | Aim Rating: %f | Time Multiplier: %f", speed_rating, aim_rating, time_multiplier)
     logging.info("Calculation took %f seconds\n", end_time - start_time)
     
-    return [cap_result(np.average([aim_rating, speed_rating], weights=[1,3])) * time_multiplier, aim_rating, speed_rating]
+    return [cap_result(np.average([aim_rating, speed_rating], weights=[1,2])) * time_multiplier, aim_rating, speed_rating]
 
 def calc_tt(tmb:TMBChart, aim_rating:float, spd_rating:float) -> float:
     song_length = b2s(tmb.notes[-1][1], tmb.tempo) - b2s(tmb.notes[0][0], tmb.tempo)
-    length_multiplier = (0.9 / (1 + math.pow(math.e, -0.08 * (song_length - 30)))) + 0.1
-    return (math.pow(np.average([aim_rating, spd_rating], weights=[1,3]), 1/1.25)) * length_multiplier * 100
+    length_multiplier = (0.9 / (1 + math.pow(math.e, -0.06 * ((song_length) - 60)))) + 0.1
+    return (math.pow(np.average([aim_rating, spd_rating], weights=[1,2]) * length_multiplier, 1/1.1)) * 100
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))

@@ -2,6 +2,8 @@
 
 This script is a rough test on how viable is it to automatically determine difficulty of custom Trombone Champ charts.
 
+This is being used to calculate chart difficulty in [TootTally](https://toottally.com/)
+
 ## Background
 
 As this is going to be calculations for overall difficulty, I think the focus of this system would be on the peaks of difficulty of a chart, and as such the system I have in mind would be designed around the idea that the difficulty of a chart would be more or less determined by its hardest portions. A lot of ideas for this comes from Xexxar's rework of osu!'s Star Rating and PP system in 2021 which I believe is quite close to quantifying difficulty in rhythm properly: https://github.com/ppy/osu/pull/14395
@@ -21,29 +23,33 @@ For this one, I've simply taken the maximum amount of buttons that would need to
 +-----------------------------+----------+---------------+--------------+------------+-------------+
 |          Song Name          | Map Diff | Computed Diff | Speed Rating | Aim Rating |  TT Rating  |
 +-----------------------------+----------+---------------+--------------+------------+-------------+
-|         A Long Fall         |    6     |      6.851221 |     4.491651 |   8.516486 |   55.483475 |
-|          BIG SHOT           |    8     |      6.674674 |     6.726129 |   7.264758 |   79.940545 |
-|        Bloody Stream        |    7     |      5.569697 |     3.497254 |   5.599051 |   56.608916 |
-|         Bonetrousle         |    5     |      7.028048 |     7.675195 |   7.981899 |   66.956078 |
-|         DRAGONLADY          |    9     |     10.549868 |    16.932243 |  18.523426 |  142.168802 |
-|     Fly me to the moon      |    5     |      4.396119 |     1.896726 |   3.492072 |   29.320105 |
-|        Freedom Dive         |    10    |     19.463868 |   101.940480 |  46.839499 |  628.443496 |
-|        Friday Night         |    6     |      5.865078 |     3.725163 |   6.275982 |   52.986667 |
-|        Gourmet Race         |    8     |      7.909082 |     6.783741 |  12.817220 |   80.568117 |
-|         Megalovania         |    10    |      8.782461 |     7.378212 |  13.995650 |   86.923861 |
-|          Meikaruza          |    10    |      9.528541 |    16.735297 |  13.790765 |  148.452639 |
-|   Never Gonna Give You Up   |    7     |      5.348760 |     4.307680 |   4.667420 |   57.980852 |
-|      Next Color Planet      |    8     |      6.625879 |     4.415193 |   7.894088 |   60.323641 |
-|      Night of Knights       |    10    |      9.525699 |    19.196664 |  13.035157 |  160.428881 |
-|         penis music         |    6     |      9.143612 |    15.043722 |  12.876661 |  135.736055 |
-|       Rainbow Tylenol       |    19    |     11.852446 |    36.379381 |  17.956106 |  258.126933 |
-|         Rockefeller         |    7     |      6.332471 |     1.981651 |   7.897931 |   35.401007 |
-|        Sea Shanty 2         |    6     |      6.943245 |     5.165613 |   8.572115 |   68.038735 |
-|       Thomas The Tank       |    4     |      4.673184 |     3.274363 |   3.925731 |   43.355269 |
-|     Thru Fire & Flames      |    10    |     10.116112 |    24.248879 |  13.748660 |  193.920469 |
-|      We Are Number One      |    6     |      6.212167 |     5.142399 |   6.521266 |   57.294018 |
-|         White Sedan         |    1     |      1.007705 |     0.527501 |   3.313106 |   10.455208 |
+|         A Long Fall         |    6     |      7.592946 |     4.491651 |   8.884794 |  129.876478 |
+|          BIG SHOT           |    8     |      8.053597 |     6.726129 |   9.173122 |  180.258960 |
+|        Bloody Stream        |    7     |      6.562881 |     3.497254 |   7.104281 |  127.912005 |
+|         Bonetrousle         |    5     |      7.507284 |     7.675195 |   7.057908 |  149.123018 |
+|         Buddy Holly         |    6     |      5.829458 |     2.792928 |   6.475109 |   96.501765 |
+|         DRAGONLADY          |    9     |     11.489314 |    16.932243 |  21.971712 |  321.783126 |
+|     Fly me to the moon      |    5     |      3.908433 |     1.896726 |   4.914576 |   61.063571 |
+|        Freedom Dive         |    10    |     17.483660 |   101.940480 |  40.684321 | 1448.483814 |
+|        Friday Night         |    6     |      7.248563 |     3.725163 |   8.426826 |  126.983073 |
+|        Gourmet Race         |    8     |      8.713737 |     6.783741 |  12.151981 |  182.415096 |
+|       Ludicolo Dance        |    8     |      6.027200 |     3.486178 |   9.072922 |  102.879984 |
+|         Megalovania         |    10    |      8.928988 |     7.378212 |  12.146942 |  192.700079 |
+|          Meikaruza          |    10    |      9.565933 |    16.735297 |  10.390138 |  319.806220 |
+|   Never Gonna Give You Up   |    7     |      6.660987 |     4.307680 |   6.835957 |  132.971424 |
+|      Next Color Planet      |    8     |      8.043520 |     4.415193 |  10.294430 |  144.084647 |
+|      Night of Knights       |    10    |     10.293069 |    19.196664 |  13.062816 |  352.459587 |
+|         penis music         |    6     |     10.007342 |    15.043722 |  13.541115 |  299.248287 |
+|       Rainbow Tylenol       |    19    |     12.921512 |    36.379381 |  23.253489 |  580.930661 |
+|         Rockefeller         |    7     |      7.115901 |     1.981651 |   8.927771 |   90.589459 |
+|        Sea Shanty 2         |    6     |      7.384670 |     5.165613 |   7.990416 |  150.869440 |
+|       Thomas The Tank       |    4     |      5.813115 |     3.274363 |   6.273837 |  101.833103 |
+|     Thru Fire & Flames      |    10    |     10.774730 |    24.248879 |  13.383213 |  424.638686 |
+|      We Are Number One      |    6     |      7.067531 |     5.142399 |   7.237836 |  131.497527 |
+|         White Sedan         |    1     |      2.600934 |     0.527501 |   4.665750 |   34.410511 |
 +-----------------------------+----------+---------------+--------------+------------+-------------+
-Report generated at Thu Nov  3 15:12:42 2022
-Generated in 1.779353 seconds
+Report generated at Fri Dec  2 14:46:50 2022
+Generated in 2.019778 seconds
 ```
+
+Charts are obtained from the [Trombone Champ Modding Discord](https://discord.gg/KVzKRsbetJ)
