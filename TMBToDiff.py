@@ -52,7 +52,7 @@ def json_to_tmb(json_string:str):
         endpoint=tmb_file["endpoint"],
         timesig=tmb_file["timesig"],
         tempo=tmb_file["tempo"],
-        lyrics=tmb_file["lyrics"],
+        lyrics=tmb_file["lyrics"] if "lyrics" in tmb_file else "",
         notes=tmb_file["notes"],
     )
 
@@ -109,7 +109,7 @@ def aim_strain(delta_time:float, distance:float) -> float:
     return (distance / 165) * (np.cbrt(-delta_time / 5) + 1)
 
 def cap_result(uncapped:float) -> float:
-    return uncapped if uncapped <= 5 else (2.5 * np.sqrt((uncapped - 5) / 2.25)) + 5
+    return uncapped**2 / 5 if uncapped <= 5 else (2.5 * np.sqrt((uncapped - 5) / 2.25)) + 5
 
 def calc_diff(tmb:Optional[TMBChart]) -> list:
     if tmb == None:
@@ -118,8 +118,10 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     start_time = time()
     taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds(tmb.notes, tmb.tempo)
-    time_multiplier = (0.25 / (1 + math.pow(math.e, -0.08 * ((taps[-1][1] - taps[0][0]) - 30)))) + 0.75 # nerf diff for short charts
-    logging.info("Song Length: %f", taps[-1][1] - taps[0][0])
+    track_length = taps[-1][1] - taps[0][0]
+    time_multiplier = (0.25 / (1 + math.pow(math.e, -0.08 * ((track_length) - 30)))) + 0.75 # nerf diff for short charts
+    stddev_multiplier = (0.5 / (1 + math.pow(math.e, 0.05 * ((track_length) - 60)))) + 1.5
+    logging.info("Song Length: %f", track_length)
     
     # Calculate aim rating
     aim_performance = [] # List containing the estimated aim performance for the note
@@ -141,7 +143,7 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     aim_performance.sort()
     top_aim_strains = aim_performance[-10:]
     aim_average = np.mean(aim_performance)
-    aim_std = np.std(aim_performance) * 2 # standard deviation
+    aim_std = np.std(aim_performance) * stddev_multiplier # standard deviation
     culled_aim = [x for x in aim_performance if x <= aim_average + aim_std]
     logging.info("Top Aim Strains for %s:\n%s", tmb.name, str(top_aim_strains))
     logging.info("Culled %d data points for aim, %d points remain",
@@ -161,16 +163,18 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     speed_performance.sort()
     top_speed_strains = speed_performance[-10:]
     speed_average = np.mean(speed_performance)
-    speed_std = np.std(speed_performance) * 2 # standard deviation
+    speed_std = np.std(speed_performance) * stddev_multiplier # standard deviation
     culled_speed = [x for x in speed_performance if x <= speed_average + speed_std]
     logging.info("Top Speed Strains for %s:\n%s", tmb.name, str(top_speed_strains))
     logging.info("Culled %d data points for speed, %d points remain",
                  len(speed_performance) - len(culled_speed),
                  len(culled_speed))
     speed_rating = np.average(culled_speed, weights=[2 - (abs(point - speed_average) / speed_std) for point in culled_speed])
+    max_scores = calc_max_score(tmb)
     end_time = time()
     logging.info("Speed Average: %f | Aim Average: %f", speed_average, aim_average)
     logging.info("Speed Rating: %f | Aim Rating: %f | Time Multiplier: %f", speed_rating, aim_rating, time_multiplier)
+    logging.info("Max Score: %d | Game Max Score: %d", max_scores[0], max_scores[1])
     logging.info("Calculation took %f seconds\n", end_time - start_time)
     
     return [cap_result(np.average([aim_rating, speed_rating], weights=[1,2])) * time_multiplier, aim_rating, speed_rating]
@@ -182,6 +186,32 @@ def calc_tt(tmb:TMBChart, aim_rating:float, spd_rating:float) -> float:
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
+
+def calc_max_score(tmb:TMBChart) -> list:
+    # Code derived from https://github.com/HypersonicSharkz/HighscoreAccuracy/blob/main/Utils.cs
+    game_max_score = 0
+    max_score = 0
+    for idx, note in enumerate(tmb.notes):
+        champ_bonus = 1.5 if idx > 23 else 0
+        num1 = np.float32(note[1] * 10)
+        num5 = np.floor(num1 * 100 * (np.float32((min(idx, 10) + champ_bonus) * 0.1) + 1)) * 10
+        max_score += np.floor(num5)
+        game_max_score += np.floor(np.floor(np.float32(num1 * 100 * np.float32(1.3))) * 10)
+    return [max_score, game_max_score]
+
+def get_letter_from_score(score:int, game_max_score:int):
+    percentage = score / game_max_score
+    if percentage > np.float32(1):
+        return "S"
+    if percentage > np.float32(0.8):
+        return "A"
+    if percentage > np.float32(0.6):
+        return "B"
+    if percentage > np.float32(0.4):
+        return "C"
+    if percentage > np.float32(0.2):
+        return "D"
+    return "F"
 
 if __name__ == "__main__":
     logging.basicConfig(filename="run.log", level=logging.INFO, encoding="utf-8", filemode="w")
