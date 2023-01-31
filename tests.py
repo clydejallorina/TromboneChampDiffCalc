@@ -17,7 +17,7 @@ if __name__ == "__main__":
         song_name = tmb.short_name[:]
         map_diff = tmb.difficulty
         diff_calc = calc_diff(tmb)
-        tt_rating = calc_tt(tmb, diff_calc[0], diff_calc[1])
+        tt_rating = calc_tt(diff_calc[0])
         print(f"|{song_name[:29]:^29s}| {map_diff:^8d} | {diff_calc[0]:13f} | {diff_calc[1]:12f} | {diff_calc[2]:10f} | {tt_rating:11f} |")
     print("+-----------------------------+----------+---------------+--------------+------------+-------------+")
     end_time = time.time()

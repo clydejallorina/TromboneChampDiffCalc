@@ -179,10 +179,13 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     
     return [cap_result(np.average([aim_rating, speed_rating], weights=[1,2])) * time_multiplier, aim_rating, speed_rating]
 
-def calc_tt(tmb:TMBChart, aim_rating:float, spd_rating:float) -> float:
-    song_length = b2s(tmb.notes[-1][1], tmb.tempo) - b2s(tmb.notes[0][0], tmb.tempo)
-    length_multiplier = (0.9 / (1 + math.pow(math.e, -0.06 * ((song_length) - 60)))) + 0.1
-    return (math.pow(np.average([aim_rating, spd_rating], weights=[1,2]) * length_multiplier, 1/1.1)) * 100
+def calc_tt(star_rating:float) -> float:
+    # Star Rating to TT Conversion Graph: https://www.desmos.com/calculator/padi1etn1w
+    if star_rating <= 0:
+        return 0
+    if star_rating >= 3.40791:
+        return 11.1538 - (17.2552 * star_rating) + (9.3328 * (star_rating ** 2)) + (0.0903 * (star_rating ** 3))
+    return (0.85 * (star_rating ** 3)) + (9 * star_rating)
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
