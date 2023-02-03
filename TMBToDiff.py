@@ -97,36 +97,6 @@ def b2s(time:float, bpm:int) -> float:
     # Shorthand for beat to seconds
     return (time / bpm) * 60
 
-def stitch_notes(notes:list, bpm:int) -> list:
-    # Stitch sliders into single objects
-    stitched_notes = []
-    min_pitch = min(notes[0][2], notes[0][4])
-    max_pitch = max(notes[0][2], notes[0][4])
-    # FORMAT: [start time, end time, start pitch, delta, end pitch]
-    to_be_stitched = [b2s(notes[0][0], bpm), b2s(notes[0][0] + notes[0][1], bpm), notes[0][2], abs(notes[0][3]), notes[0][4]]
-    for idx in range(1, len(notes)):
-        min_pitch = min(min_pitch, notes[idx][2], notes[idx][4])
-        max_pitch = max(max_pitch, notes[idx][2], notes[idx][4])
-        if notes[idx][0] != notes[idx-1][0] + notes[idx-1][1] or notes[idx][2] != notes[idx-1][4]:
-            # Doesn't need to be stitched, start of new note
-            stitched_notes.append(to_be_stitched)
-            to_be_stitched = [b2s(notes[idx][0], bpm), b2s(notes[idx][0] + notes[idx][1], bpm), notes[idx][2], abs(notes[idx][3]), notes[idx][4]]
-        else:
-            # Needs to be stitched, update details
-            to_be_stitched[1] = b2s(notes[idx][0] + notes[idx][1], bpm) # Set end time to the new one
-            to_be_stitched[3] += abs(notes[idx][3]) # Add cumulative delta for slider
-            to_be_stitched[4] = notes[idx][4] # Update end pitch to the new one
-    stitched_notes.append(to_be_stitched)
-    return stitched_notes
-
-def turn_to_seconds(notes:list, bpm:int) -> list:
-    new_notes = []
-    for note in notes:
-        start_time = b2s(note[0], bpm)
-        end_time = b2s(note[0] + note[1], bpm) if note[1] != 0 else b2s(note[0] + 0.01, bpm)
-        new_notes.append([start_time, end_time] + note[2:])
-    return new_notes
-
 def turn_to_seconds_v2(notes:list, bpm:float) -> list:
     new_notes = []
     for note in notes:
@@ -147,41 +117,6 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
     ]
     strain_multiplier = np.sqrt(sum(important_notes) * len(important_notes) + len(important_notes)) / 2.75
     return strain_multiplier
-
-def calc_aim_rating(notes:list) -> float:
-    LENGTH_WEIGHTS = [1, 0.98, 0.95, 0.85, 0.70, 0.55, 0.3, 0.2, 0.1, 0.005]
-    
-    aim_performance = []
-    for current_idx, current_note in enumerate(notes):
-        slider_strain = 0
-        speed_strain = 0
-        current_note_length = current_note[NoteData.TIME_END.value] - current_note[NoteData.TIME_START.value]
-        
-        i = 1
-        while i < 10 and current_idx + i < len(notes) and abs(notes[current_idx+i][NoteData.TIME_START.value] - current_note[NoteData.TIME_END.value]) <= 4:
-            speed = 0
-            distance = 0
-            t = 0
-            slider_speed = abs(current_note[NoteData.PITCH_DELTA.value]) / (current_note_length)
-            
-            if notes[i + current_idx - 1][NoteData.PITCH_END.value] != notes[i + current_idx][NoteData.PITCH_START.value]:
-                distance = abs(notes[i + current_idx][NoteData.PITCH_START.value] - notes[i + current_idx - 1][NoteData.PITCH_END.value])
-                t = notes[i + current_idx][NoteData.TIME_START.value] - notes[i + current_idx - 1][NoteData.TIME_END.value]
-                if t != 0:
-                    speed = distance / t
-            if notes[i + current_idx][NoteData.PITCH_DELTA.value] <= 34.375:
-                slider_speed *= (abs(notes[i + current_idx][NoteData.PITCH_DELTA.value]) * 1.5) / 34.375
-            
-            slider_strain += slider_speed * LENGTH_WEIGHTS[i]
-            speed_strain += speed * LENGTH_WEIGHTS[i]
-            i += 1
-        
-        average_slider_strain = min(slider_strain, 500) / 10
-        average_speed_strain = min(speed_strain, 500) / 10
-        combo_multiplier = current_note_length / (calc_combo_performance(notes, current_idx) * 10)
-        note_strain = (average_slider_strain + average_speed_strain) * combo_multiplier * 1.2
-        aim_performance.append(note_strain)
-    return np.average(aim_performance)
 
 def calc_aim_rating_v2(notes:List[Note]) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
@@ -239,20 +174,6 @@ def calc_aim_rating_v2(notes:List[Note]) -> float:
     
     return np.average(aim_performance)
 
-def calc_tap_rating(notes:list) -> float:
-    tap_values = []
-    for current_idx, current_note in enumerate(notes):
-        tap_strains = [
-            2.5 / (note[NoteData.TIME_START.value] - notes[current_idx + idx - 1][NoteData.TIME_END.value])
-            for idx, note in enumerate(notes[current_idx+1:current_idx+10])
-            if note[NoteData.TIME_START.value] - current_note[NoteData.TIME_END.value] <= 4
-        ]
-        if len(tap_strains) != 0:
-            tap_values.append(sum(tap_strains) / len(tap_strains))
-        else:
-            tap_values.append(0)
-    return np.average(tap_values)
-
 def calc_tap_rating_v2(notes:List[Note]) -> float:
     tap_performance = []
     for current_idx, current_note in enumerate(notes):
@@ -272,9 +193,6 @@ def calc_tap_rating_v2(notes:List[Note]) -> float:
         tap_performance.append(tap_strain)
     
     return np.average(tap_performance)
-
-def cap_result(uncapped:float) -> float:
-    return uncapped**2 / 5 if uncapped <= 5 else (2.5 * np.sqrt((uncapped - 5) / 2.25)) + 5
 
 def calc_diff(tmb:Optional[TMBChart]) -> list:
     if tmb == None:
