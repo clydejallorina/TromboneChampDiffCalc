@@ -5,5 +5,6 @@ dist/
 
 # Keeping these files out of the repo to avoid copyright issues with charters
 tmbs/
+testtmbs/
 
 *.log
