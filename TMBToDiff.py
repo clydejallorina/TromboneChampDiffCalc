@@ -10,6 +10,7 @@ import numpy as np
 from enum import Enum
 from hashlib import sha256
 import requests as r
+import matplotlib.pyplot as plt
 
 class NoteData(Enum):
     TIME_START = 0
@@ -118,8 +119,11 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
     strain_multiplier = np.sqrt(sum(important_notes) * len(important_notes) + len(important_notes)) / 2.75
     return strain_multiplier
 
-def calc_aim_rating_v2(notes:List[Note]) -> float:
+def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
+    MAXIMUM_TIME_CONSTANT = b2s(0.2, bpm)
+    ENDURANCE_STRAIN_LIMIT = 500
+    endurance_multiplier = 0.85
     aim_performance = []
     for current_idx, current_note in enumerate(notes):
         slider_strain = 0
@@ -144,7 +148,7 @@ def calc_aim_rating_v2(notes:List[Note]) -> float:
                 curr_dir = np.sign(prev_note_delta)
                 dist = abs(prev_note_delta)
                 t = note.time_start - prev_note.time_end
-                speed = dist / abs(t)
+                speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
             elif note.pitch_delta <= SLIDER_BREAK_CONSTANT:
                 # Apply cheesable slider nerf
                 slider_speed /= ((SLIDER_BREAK_CONSTANT * combo_penalty * 2) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
@@ -152,29 +156,43 @@ def calc_aim_rating_v2(notes:List[Note]) -> float:
             # Apply direction switch buff
             if curr_dir != 0 and prev_dir == -curr_dir:
                 if prev_note != None:
-                    delta_multiplier = (0.2 / (1 + math.pow(math.e, -0.05 * (prev_note_delta - 100)))) + 1
+                    delta_multiplier = (0.1 / (1 + math.pow(math.e, -0.05 * (prev_note_delta - 130)))) + 1
                 else:
-                    delta_multiplier = (0.3 / (1 + math.pow(math.e, -0.05 * (note.pitch_delta - 40)))) + 1
+                    delta_multiplier = (0.2 / (1 + math.pow(math.e, -0.05 * (note.pitch_delta - 40)))) + 1
                 direction_switch_bonus *= delta_multiplier
+            if direction_switch_bonus > 1.5: # hard cap it to 2
+                direction_switch_bonus = 1.5
             
             weight = math.pow(0.94, i-1)
             slider_strain += abs(slider_speed) * weight * direction_switch_bonus
             speed_strain += speed * weight * direction_switch_bonus
             prev_dir = curr_dir
         
+        strain_sum = speed_strain + slider_strain
+        endurance_strain = lambda x: (math.pow(x, 1 / 2.5) / 50000) + 1
+        if endurance_multiplier >= 1 and strain_sum <= ENDURANCE_STRAIN_LIMIT:
+            endurance_multiplier /= (1 - (endurance_strain(ENDURANCE_STRAIN_LIMIT) - endurance_strain(strain_sum)))
+        else:
+            endurance_multiplier *= endurance_strain(strain_sum)
+        
         # Apply combo penalties for the note
         if combo_penalty < 1.25:
             slider_strain *= combo_penalty * 1.15
             speed_strain *= combo_penalty * 1.3
         
+        slider_strain *= endurance_multiplier
+        speed_strain *= endurance_multiplier
+        
         slider_strain = np.sqrt(slider_strain * len(important_notes)) / 90
-        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 75
+        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 85
         
         aim_performance.append(slider_strain + speed_strain)
-    
+    x = [note.time_start for note in notes]
+    generate_graph(x, aim_performance, "Time (s)", "Aim Performance", f"{song_name} - Aim")
     return np.average(aim_performance)
 
-def calc_tap_rating_v2(notes:List[Note]) -> float:
+def calc_tap_rating_v2(notes:List[Note], song_name:str) -> float:
+    endurance_multiplier = 0.85
     tap_performance = []
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
@@ -189,9 +207,17 @@ def calc_tap_rating_v2(notes:List[Note]) -> float:
                 tap_strain += strain_value
                 time_delta = note.time_start - prev_note.time_end
                 strain_value += abs(0.55 - time_delta)
-        tap_strain = np.sqrt(tap_strain / 5)
+
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 18000) + 1
+        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 900) + 1
+        if endurance_multiplier >= 1:
+            endurance_multiplier /= decay_curve(endurance_multiplier)
+        endurance_multiplier *= endurance_curve(tap_strain)
+        tap_strain = np.sqrt(tap_strain / 5) * endurance_multiplier
         tap_performance.append(tap_strain)
     
+    x = [note.time_start for note in notes]
+    generate_graph(x, tap_performance, "Time (s)", "Tap Performance", f"{song_name} - Tap")
     return np.average(tap_performance)
 
 def calc_diff(tmb:Optional[TMBChart]) -> list:
@@ -199,20 +225,18 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
         logging.error("TMB Chart is None, returning 0")
         return [0,0,0]
     start_time = time()
-    # taps = stitch_notes(tmb.notes, tmb.tempo)
     converted = turn_to_seconds_v2(tmb.notes, tmb.tempo)
     track_length = converted[-1].time_end - converted[0].time_start
-    time_multiplier = (0.15 / (1 + math.pow(math.e, -0.08 * ((track_length) - 30)))) + 0.85 # nerf diff for short charts
     logging.info("Processing: %s", tmb.name)
     logging.info("Song Length: %f", track_length)
     
-    aim_rating = calc_aim_rating_v2(converted)
-    tap_rating = calc_tap_rating_v2(converted)
+    aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name)
+    tap_rating = calc_tap_rating_v2(converted, tmb.short_name)
     
     star_rating = np.average([aim_rating, tap_rating], weights=[2,1])
     end_time = time()
     logging.info("Processing took %f seconds", end_time - start_time)
-    return [star_rating * time_multiplier, aim_rating, tap_rating]
+    return [star_rating, aim_rating, tap_rating]
 
 def calc_tt(star_rating:float) -> float:
     # Star Rating to TT Conversion Graph: https://www.desmos.com/calculator/padi1etn1w
@@ -289,6 +313,20 @@ def log_leaderboard(filename:str, base_tt:float, max_score:float):
     leaderboard += "+---------+-----------------------+---------------+-------------------+\n"
         
     logging.info(leaderboard)
+    
+def generate_graph(x, y, x_label="", y_label="", title=""):
+    title = title.strip()
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.set(xlabel=x_label, ylabel=y_label, title=title)
+    ax.grid()
+    fig.set_size_inches(18.5, 10.5)
+    fig.set_dpi(400)
+    try:
+        fig.savefig(f"graphs/{title}")
+    except Exception as e:
+        logging.error(f"Failed to generate graph: {e}")
+    plt.close(fig)
 
 if __name__ == "__main__":
     logging.basicConfig(filename="run.log", level=logging.INFO, encoding="utf-8", filemode="w")
