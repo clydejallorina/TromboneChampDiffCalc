@@ -21,7 +21,7 @@ if __name__ == "__main__":
         diff_calc = calc_diff(tmb)
         tt_rating = calc_tt(diff_calc[0])
         max_score, game_max_score = calc_max_score(tmb)
-        # log_leaderboard(FOLDER + tmb_file, tt_rating, max_score)
+        log_leaderboard(FOLDER + tmb_file, tt_rating, max_score)
         print(f"|{song_name[:29]:^29s}| {map_diff:^8d} | {diff_calc[0]:13f} | {diff_calc[2]:12f} | {diff_calc[1]:10f} | {tt_rating:11f} |")
     print("+-----------------------------+----------+---------------+--------------+------------+-------------+")
     end_time = time.time()

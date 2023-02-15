@@ -12,6 +12,8 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
+TMB_TO_DIFF_VERSION = "1.0.2"
+GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
     TIME_END = 1
@@ -98,7 +100,7 @@ def b2s(time:float, bpm:int) -> float:
     # Shorthand for beat to seconds
     return (time / bpm) * 60
 
-def turn_to_seconds_v2(notes:list, bpm:float) -> list:
+def turn_to_seconds_v2(notes:list, bpm:float) -> List[Note]:
     new_notes = []
     for note in notes:
         start_time = b2s(note[0], bpm)
@@ -135,9 +137,10 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = (abs(current_note.pitch_delta) / current_note.length) * 4
-            curr_dir = np.sign(current_note.pitch_delta)
+            slider_speed = (abs(note.pitch_delta) / note.length) * 1
+            curr_dir = np.sign(note.pitch_delta)
             prev_note = None
+            prev_note_delta = None
             
             if current_idx + i > 0:
                 prev_note = notes[current_idx + i - 1]
@@ -155,7 +158,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             
             # Apply direction switch buff
             if curr_dir != 0 and prev_dir == -curr_dir:
-                if prev_note != None:
+                if prev_note_delta != None:
                     delta_multiplier = (0.1 / (1 + math.pow(math.e, -0.05 * (prev_note_delta - 130)))) + 1
                 else:
                     delta_multiplier = (0.2 / (1 + math.pow(math.e, -0.05 * (note.pitch_delta - 40)))) + 1
@@ -183,8 +186,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 90
-        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 85
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 85
+        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 90
         
         aim_performance.append(slider_strain + speed_strain)
     x = [note.time_start for note in notes]
@@ -213,7 +216,7 @@ def calc_tap_rating_v2(notes:List[Note], song_name:str) -> float:
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(tap_strain)
-        tap_strain = np.sqrt(tap_strain / 5) * endurance_multiplier
+        tap_strain = np.sqrt(tap_strain / 6.2) * endurance_multiplier
         tap_performance.append(tap_strain)
     
     x = [note.time_start for note in notes]
@@ -263,15 +266,14 @@ def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
 
 def calc_max_score(tmb:TMBChart) -> list:
-    # Code derived from https://github.com/HypersonicSharkz/HighscoreAccuracy/blob/main/Utils.cs
+    # Code derived from https://github.com/emmett-shark/HighscoreAccuracy/blob/main/Utils.cs
     game_max_score = 0
     max_score = 0
     for idx, note in enumerate(tmb.notes):
-        champ_bonus = 1.5 if idx > 23 else 0
-        num1 = np.float32(note[1] * 10)
-        num5 = np.floor(num1 * 100 * (np.float32((min(idx, 10) + champ_bonus) * 0.1) + 1)) * 10
-        max_score += np.floor(num5)
-        game_max_score += np.floor(np.floor(np.float32(num1 * 100 * np.float32(1.3))) * 10)
+        champ_bonus = np.float32(1.5) if idx > 23 else 0
+        real_coefficient = np.float32((min(idx, 10) + champ_bonus) * np.float32(0.1)) + np.float32(1)
+        max_score += np.floor(np.floor(np.float32(note[1]) * np.float32(10) * np.float32(100) * real_coefficient) * np.float32(10))
+        game_max_score += np.floor(np.floor(note[1] * np.float32(10) * np.float32(100) * np.float32(1.3)) * np.float32(10))
     return [max_score, game_max_score]
 
 def get_letter_from_score(score:int, game_max_score:int):
@@ -315,6 +317,8 @@ def log_leaderboard(filename:str, base_tt:float, max_score:float):
     logging.info(leaderboard)
     
 def generate_graph(x, y, x_label="", y_label="", title=""):
+    if not GENERATE_GRAPHS:
+        return
     title = title.strip()
     fig, ax = plt.subplots()
     ax.plot(x, y)
@@ -323,6 +327,7 @@ def generate_graph(x, y, x_label="", y_label="", title=""):
     fig.set_size_inches(18.5, 10.5)
     fig.set_dpi(400)
     try:
+        logging.info(f"Generating graph: graphs/{title}.png")
         fig.savefig(f"graphs/{title}")
     except Exception as e:
         logging.error(f"Failed to generate graph: {e}")
@@ -338,7 +343,7 @@ if __name__ == "__main__":
     max_score, game_max_score = calc_max_score(tmb)
     base_tt = calc_tt(diff)
     print(f"{tmb}: {round(diff, 3)} [Aim: {round(aim, 3)}|Speed: {round(spd, 3)}]")
-    print(f"Max Score: {max_score}")
+    print(f"Game Max Score: {game_max_score} | Max Score: {max_score} | Base TT: {base_tt}")
     
     # Get leaderboard from TootTally servers
     with open(args.filename, "r") as file:
@@ -357,4 +362,4 @@ if __name__ == "__main__":
             results = lb["results"]
             for result in results:
                 tt = calc_score_tt(base_tt, int(result["score"]), max_score)
-                print(f"{result['player']}: {round(tt, 4)}tt")
+                print(f"{result['player']}: {round((result['score'] / game_max_score) * 100, 2)}% - {round(tt, 4)}tt")
