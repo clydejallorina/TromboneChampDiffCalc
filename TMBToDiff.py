@@ -273,7 +273,7 @@ def calc_max_score(tmb:TMBChart) -> list:
         champ_bonus = np.float32(1.5) if idx > 23 else 0
         real_coefficient = np.float32((min(idx, 10) + champ_bonus) * np.float32(0.1)) + np.float32(1)
         max_score += np.floor(np.floor(np.float32(note[1]) * np.float32(10) * np.float32(100) * real_coefficient) * np.float32(10))
-        game_max_score += np.floor(np.floor(note[1] * np.float32(10) * np.float32(100) * np.float32(1.3)) * np.float32(10))
+        game_max_score += np.floor(np.floor(np.float32(note[1]) * np.float32(10) * np.float32(100) * np.float32(1.3)) * np.float32(10))
     return [max_score, game_max_score]
 
 def get_letter_from_score(score:int, game_max_score:int):
