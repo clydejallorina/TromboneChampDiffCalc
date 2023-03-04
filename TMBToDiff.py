@@ -12,7 +12,7 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.0.2"
+TMB_TO_DIFF_VERSION = "1.0.4"
 GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
@@ -104,12 +104,15 @@ def turn_to_seconds_v2(notes:list, bpm:float) -> List[Note]:
     new_notes = []
     for note in notes:
         start_time = b2s(note[0], bpm)
-        note_length = note[1] if note[1] > 0 else 0.01
-        end_time = b2s(note[0] + note[1], bpm) if note[1] != 0 else b2s(note[0] + 0.01, bpm)
+        note_length = note[1] if note[1] > 0 else 0.015
+        end_time = b2s(note[0] + note[1], bpm) if note[1] != 0 else b2s(note[0] + 0.015, bpm)
         new_note = Note(time_start=start_time, time_end=end_time, length=b2s(note_length, bpm), pitch_start=note[2], pitch_delta=note[3], pitch_end=note[4])
         new_notes.append(new_note)
     new_notes.sort(key=lambda x: x.time_start) # Sort the notes by start time to not have weird timing bugs in calculation, just in case
     return new_notes
+
+def calculate_tap_note_nerf(non_tap_note_ratio, average_note_length, stacatto_constant) -> float:
+    return max(-(((0.7 * average_note_length) - stacatto_constant) ** (1 / (5 * non_tap_note_ratio))) + 1.1, 0.3)
 
 def calc_combo_performance(notes:List[Note], index:int) -> float:
     LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
@@ -124,9 +127,19 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
     MAXIMUM_TIME_CONSTANT = b2s(0.2, bpm)
+    STACCATO_CONSTANT = b2s(0.0625, bpm)
     ENDURANCE_STRAIN_LIMIT = 500
     endurance_multiplier = 0.85
     aim_performance = []
+    
+    # Calculate limit for nerfing short notes
+    non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
+    non_tap_ratio = (len(non_tap_notes) / len(notes))
+    average_length = np.average(non_tap_notes)
+    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
+    logging.info("Stacatto Constant: %f seconds | Average Length: %f | Non-Tap Ratio: %f", STACCATO_CONSTANT, average_length, non_tap_ratio)
+    logging.info("BPM: %f", bpm)
+    
     for current_idx, current_note in enumerate(notes):
         slider_strain = 0
         speed_strain = 0
@@ -189,14 +202,25 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain = np.sqrt(slider_strain * len(important_notes)) / 85
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 90
         
-        aim_performance.append(slider_strain + speed_strain)
+        total_strain = slider_strain + speed_strain
+        if current_note.length <= b2s(0.0625, bpm):
+            total_strain *= TAP_NOTE_NERF
+        aim_performance.append(total_strain)
     x = [note.time_start for note in notes]
     generate_graph(x, aim_performance, "Time (s)", "Aim Performance", f"{song_name} - Aim")
     return np.average(aim_performance)
 
-def calc_tap_rating_v2(notes:List[Note], song_name:str) -> float:
+def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
+    STACCATO_CONSTANT = b2s(0.0625, bpm)
     endurance_multiplier = 0.85
     tap_performance = []
+    
+    # Calculate limit for nerfing short notes
+    non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
+    non_tap_ratio = (len(non_tap_notes) / len(notes))
+    average_length = np.average(non_tap_notes)
+    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT)
+    
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
         strain_value = 1
@@ -217,6 +241,8 @@ def calc_tap_rating_v2(notes:List[Note], song_name:str) -> float:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(tap_strain)
         tap_strain = np.sqrt(tap_strain / 6.2) * endurance_multiplier
+        if current_note.length <= b2s(0.0625, bpm):
+            tap_strain *= TAP_NOTE_NERF
         tap_performance.append(tap_strain)
     
     x = [note.time_start for note in notes]
@@ -234,7 +260,7 @@ def calc_diff(tmb:Optional[TMBChart]) -> list:
     logging.info("Song Length: %f", track_length)
     
     aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name)
-    tap_rating = calc_tap_rating_v2(converted, tmb.short_name)
+    tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name)
     
     star_rating = np.average([aim_rating, tap_rating], weights=[2,1])
     end_time = time()
@@ -250,7 +276,7 @@ def calc_tt(star_rating:float) -> float:
     return (0.85 * (star_rating ** 3)) + (9 * star_rating)
 
 def calc_score_tt(base_tt:float, player_score:float, max_score:float) -> float:
-    # Code derived from https://www.desmos.com/calculator/z6li8qz2ai
+    # Code derived from https://www.desmos.com/calculator/zpxry46d5f
     percentage = player_score / max_score
     if percentage < 0:
         return 0
@@ -258,9 +284,9 @@ def calc_score_tt(base_tt:float, player_score:float, max_score:float) -> float:
         return (0.026 * percentage) * base_tt
     if percentage < 0.5:
         return ((0.9 * (percentage ** 3)) - (0.055 * percentage)) * base_tt
-    if percentage <= 0.8:
-        return ((3.2 * (percentage ** 5.2)) - (0.00351035 * percentage)) * base_tt
-    return ((3 * (percentage ** 5.6)) + (0.165545 * percentage)) * base_tt
+    if percentage <= 0.9:
+        return ((3 * (percentage ** 5.6)) + (0.165545 * percentage)) * base_tt
+    return ((0.4 * math.pow(math.e, 28.1 * (percentage - 0.9))) + 1.4470081) * base_tt
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
@@ -270,10 +296,11 @@ def calc_max_score(tmb:TMBChart) -> list:
     game_max_score = 0
     max_score = 0
     for idx, note in enumerate(tmb.notes):
+        note_length = np.float32(0.015) if note[1] == 0 else note[1]
         champ_bonus = np.float32(1.5) if idx > 23 else 0
         real_coefficient = np.float32((min(idx, 10) + champ_bonus) * np.float32(0.1)) + np.float32(1)
-        max_score += np.floor(np.floor(np.float32(note[1]) * np.float32(10) * np.float32(100) * real_coefficient) * np.float32(10))
-        game_max_score += np.floor(np.floor(np.float32(note[1]) * np.float32(10) * np.float32(100) * np.float32(1.3)) * np.float32(10))
+        max_score += np.floor(np.floor(np.float32(note_length) * np.float32(10) * np.float32(100) * real_coefficient) * np.float32(10))
+        game_max_score += np.floor(np.floor(np.float32(note_length) * np.float32(10) * np.float32(100) * np.float32(1.3)) * np.float32(10))
     return [max_score, game_max_score]
 
 def get_letter_from_score(score:int, game_max_score:int):
@@ -362,4 +389,4 @@ if __name__ == "__main__":
             results = lb["results"]
             for result in results:
                 tt = calc_score_tt(base_tt, int(result["score"]), max_score)
-                print(f"{result['player']}: {round((result['score'] / game_max_score) * 100, 2)}% - {round(tt, 4)}tt")
+                print(f"{result['player']}: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 4)}tt")
