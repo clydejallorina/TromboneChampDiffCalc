@@ -219,7 +219,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
     non_tap_ratio = (len(non_tap_notes) / len(notes))
     average_length = np.average(non_tap_notes)
-    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT)
+    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
     
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
