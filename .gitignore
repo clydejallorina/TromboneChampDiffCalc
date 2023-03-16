@@ -12,3 +12,4 @@ graphs/
 replays/
 
 *.log
+tests.*

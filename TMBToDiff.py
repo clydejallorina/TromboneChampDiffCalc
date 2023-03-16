@@ -12,7 +12,7 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.0.4"
+TMB_TO_DIFF_VERSION = "1.1.0"
 GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
@@ -100,6 +100,12 @@ def b2s(time:float, bpm:int) -> float:
     # Shorthand for beat to seconds
     return (time / bpm) * 60
 
+def lerp(a, b, t):
+    # a = initial point
+    # b = final point
+    # t = time interval
+    return a + ((b - a) * t)
+
 def turn_to_seconds_v2(notes:list, bpm:float) -> List[Note]:
     new_notes = []
     for note in notes:
@@ -111,8 +117,11 @@ def turn_to_seconds_v2(notes:list, bpm:float) -> List[Note]:
     new_notes.sort(key=lambda x: x.time_start) # Sort the notes by start time to not have weird timing bugs in calculation, just in case
     return new_notes
 
-def calculate_tap_note_nerf(non_tap_note_ratio, average_note_length, stacatto_constant) -> float:
-    return max(-(((0.7 * average_note_length) - stacatto_constant) ** (1 / (5 * non_tap_note_ratio))) + 1.1, 0.3)
+def calculate_tap_tap_note_nerf(non_tap_note_ratio, average_note_length, stacatto_constant) -> float:
+    return max(-(math.pow((0.70 * (average_note_length - stacatto_constant)), (1 / (8 * non_tap_note_ratio)))) + 1, 0.5)
+
+def calculate_aim_tap_note_nerf(non_tap_note_ratio, average_note_length, stacatto_constant) -> float:
+    return max(-(math.pow((0.45 * (average_note_length - stacatto_constant)), (1 / (7 * non_tap_note_ratio)))) + 1, 0.5)
 
 def calc_combo_performance(notes:List[Note], index:int) -> float:
     LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
@@ -126,7 +135,7 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
 
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
-    MAXIMUM_TIME_CONSTANT = b2s(0.2, bpm)
+    MAXIMUM_TIME_CONSTANT = b2s(0.05, bpm)
     STACCATO_CONSTANT = b2s(0.0625, bpm)
     ENDURANCE_STRAIN_LIMIT = 500
     endurance_multiplier = 0.85
@@ -136,7 +145,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
     non_tap_ratio = (len(non_tap_notes) / len(notes))
     average_length = np.average(non_tap_notes)
-    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
+    average_nerfs = []
+    TAP_NOTE_NERF = calculate_aim_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
     logging.info("Stacatto Constant: %f seconds | Average Length: %f | Non-Tap Ratio: %f", STACCATO_CONSTANT, average_length, non_tap_ratio)
     logging.info("BPM: %f", bpm)
     
@@ -145,13 +155,15 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         speed_strain = 0
         direction_switch_bonus = 1
         combo_penalty = calc_combo_performance(notes, current_idx)
+        nerf = []
         prev_dir = 0 # -1 = DOWN, 0 = NOT MOVING, 1 = UP
-        important_notes = [note for i, note in enumerate(notes[current_idx:current_idx+60]) if note.time_start - current_note.time_end <= 5]
+        important_notes = [note for note in notes[current_idx:current_idx+50] if note.time_start - current_note.time_end <= 5]
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = (abs(note.pitch_delta) / note.length) * 1
+            slider_speed = abs(note.pitch_delta) / note.length
             curr_dir = np.sign(note.pitch_delta)
+            stacatto_nerf = 1
             prev_note = None
             prev_note_delta = None
             
@@ -178,10 +190,14 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 direction_switch_bonus *= delta_multiplier
             if direction_switch_bonus > 1.5: # hard cap it to 2
                 direction_switch_bonus = 1.5
+            if note.length < average_length:
+                stacatto_lerp = min((average_length - note.length) / (average_length - STACCATO_CONSTANT), 1)
+                stacatto_nerf = lerp(1, TAP_NOTE_NERF, stacatto_lerp)
+                nerf.append(stacatto_nerf)
             
-            weight = math.pow(0.94, i-1)
-            slider_strain += abs(slider_speed) * weight * direction_switch_bonus
-            speed_strain += speed * weight * direction_switch_bonus
+            weight = math.pow(0.9375, i-1)
+            slider_strain += abs(slider_speed) * weight * direction_switch_bonus * stacatto_nerf * 3
+            speed_strain += speed * weight * direction_switch_bonus * stacatto_nerf * 1.15
             prev_dir = curr_dir
         
         strain_sum = speed_strain + slider_strain
@@ -203,12 +219,13 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 90
         
         total_strain = slider_strain + speed_strain
-        if current_note.length <= b2s(0.0625, bpm):
-            total_strain *= TAP_NOTE_NERF
         aim_performance.append(total_strain)
+        if len(nerf) > 0:
+            average_nerfs.append(np.average(nerf))
     x = [note.time_start for note in notes]
     generate_graph(x, aim_performance, "Time (s)", "Aim Performance", f"{song_name} - Aim")
-    return np.average(aim_performance)
+    # logging.info("Nerf Min: %f | Nerf Max: %f | Nerf Avg: %f", min(average_nerfs), max(average_nerfs), np.average(average_nerfs))
+    return np.average(aim_performance)#, weights=[note.length for note in notes])
 
 def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     STACCATO_CONSTANT = b2s(0.0625, bpm)
@@ -219,21 +236,25 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
     non_tap_ratio = (len(non_tap_notes) / len(notes))
     average_length = np.average(non_tap_notes)
-    TAP_NOTE_NERF = calculate_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
+    TAP_NOTE_NERF = calculate_tap_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
     
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
         strain_value = 1
-        important_notes = [note for note in notes[current_idx+1:current_idx+101] if note.time_start - current_note.time_end <= 8]
+        important_notes = [note for note in notes[current_idx+1:current_idx+51] if note.time_start - current_note.time_end <= 8]
         
         for i, note in enumerate(important_notes, start=1):
             prev_note = None
             if current_idx + i > 0:
                 prev_note = notes[current_idx + i - 1]
             if prev_note != None and note.time_start > prev_note.time_end and prev_note.pitch_delta == 0:
+                stacatto_nerf = 1
                 tap_strain += strain_value
                 time_delta = note.time_start - prev_note.time_end
-                strain_value += abs(0.55 - time_delta)
+                if note.length < average_length:
+                    stacatto_lerp = min((average_length - note.length) / (average_length - STACCATO_CONSTANT), 1)
+                    stacatto_nerf *= lerp(1, TAP_NOTE_NERF, stacatto_lerp)
+                strain_value += abs(0.55 - time_delta) * stacatto_nerf
 
         endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 18000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 900) + 1
@@ -241,8 +262,6 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(tap_strain)
         tap_strain = np.sqrt(tap_strain / 6.2) * endurance_multiplier
-        if current_note.length <= b2s(0.0625, bpm):
-            tap_strain *= TAP_NOTE_NERF
         tap_performance.append(tap_strain)
     
     x = [note.time_start for note in notes]
@@ -355,7 +374,7 @@ def generate_graph(x, y, x_label="", y_label="", title=""):
     fig.set_dpi(400)
     try:
         logging.info(f"Generating graph: graphs/{title}.png")
-        fig.savefig(f"graphs/{title}")
+        fig.savefig(f"graphs/{title.replace('.', '').replace('?', '')}")
     except Exception as e:
         logging.error(f"Failed to generate graph: {e}")
     plt.close(fig)
@@ -380,6 +399,7 @@ if __name__ == "__main__":
         print("Cannot find on TootTally servers, stopping.")
     else:
         song_id = req.text
+        print(f"Searching leaderboard for https://toottally.com/song/{song_id}")
         lb_req = r.get(f"https://toottally.com/api/songs/{song_id}/leaderboard/")
         if lb_req.status_code != 200:
             print("Cannot obtain leaderboard data, stopping.")
