@@ -13,7 +13,7 @@ import requests as r
 import matplotlib.pyplot as plt
 
 TMB_TO_DIFF_VERSION = "1.1.0"
-GENERATE_GRAPHS = True
+GENERATE_GRAPHS = False
 class NoteData(Enum):
     TIME_START = 0
     TIME_END = 1
@@ -268,15 +268,18 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     generate_graph(x, tap_performance, "Time (s)", "Tap Performance", f"{song_name} - Tap")
     return np.average(tap_performance)
 
-def calc_diff(tmb:Optional[TMBChart]) -> list:
+def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     if tmb == None:
         logging.error("TMB Chart is None, returning 0")
         return [0,0,0]
     start_time = time()
+    previous_tempo = tmb.tempo
+    tmb.tempo *= speed
     converted = turn_to_seconds_v2(tmb.notes, tmb.tempo)
     track_length = converted[-1].time_end - converted[0].time_start
     logging.info("Processing: %s", tmb.name)
     logging.info("Song Length: %f", track_length)
+    logging.info("Speed: %f (%f BPM -> %f BPM)", speed, previous_tempo, tmb.tempo)
     
     aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name)
     tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name)
