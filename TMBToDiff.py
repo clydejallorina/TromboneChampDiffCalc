@@ -106,6 +106,9 @@ def lerp(a, b, t):
     # t = time interval
     return a + ((b - a) * t)
 
+def ease(a, b, t, exponent):
+    return lerp(a, b, t ** exponent)
+
 def turn_to_seconds_v2(notes:list, bpm:float) -> List[Note]:
     new_notes = []
     for note in notes:
@@ -137,7 +140,6 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
     MAXIMUM_TIME_CONSTANT = b2s(0.05, bpm)
     STACCATO_CONSTANT = b2s(0.0625, bpm)
-    ENDURANCE_STRAIN_LIMIT = 500
     endurance_multiplier = 0.85
     aim_performance = []
     
@@ -201,11 +203,11 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             prev_dir = curr_dir
         
         strain_sum = speed_strain + slider_strain
-        endurance_strain = lambda x: (math.pow(x, 1 / 2.5) / 50000) + 1
-        if endurance_multiplier >= 1 and strain_sum <= ENDURANCE_STRAIN_LIMIT:
-            endurance_multiplier /= (1 - (endurance_strain(ENDURANCE_STRAIN_LIMIT) - endurance_strain(strain_sum)))
-        else:
-            endurance_multiplier *= endurance_strain(strain_sum)
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 50000) + 1
+        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 900) + 1
+        if endurance_multiplier >= 1:
+            endurance_multiplier /= decay_curve(endurance_multiplier)
+        endurance_multiplier *= endurance_curve(strain_sum)
         
         # Apply combo penalties for the note
         if combo_penalty < 1.25:
@@ -224,8 +226,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             average_nerfs.append(np.average(nerf))
     x = [note.time_start for note in notes]
     generate_graph(x, aim_performance, "Time (s)", "Aim Performance", f"{song_name} - Aim")
-    # logging.info("Nerf Min: %f | Nerf Max: %f | Nerf Avg: %f", min(average_nerfs), max(average_nerfs), np.average(average_nerfs))
-    return np.average(aim_performance)#, weights=[note.length for note in notes])
+    return np.average(aim_performance)
 
 def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     STACCATO_CONSTANT = b2s(0.0625, bpm)
@@ -386,6 +387,7 @@ if __name__ == "__main__":
     logging.basicConfig(filename="run.log", level=logging.INFO, encoding="utf-8", filemode="w")
     parser = argparse.ArgumentParser(description="Difficulty calculation tool")
     parser.add_argument("filename", metavar="filename", type=str, help="Target .tmb to analyze")
+    # parser.add_argument("lb", metavar="lb", type=bool, help="Enable leaderboard calculations")
     args = parser.parse_args()
     tmb = read_tmb(args.filename)
     diff, aim, spd = calc_diff(tmb)
@@ -395,6 +397,7 @@ if __name__ == "__main__":
     print(f"Game Max Score: {game_max_score} | Max Score: {max_score} | Base TT: {base_tt}")
     
     # Get leaderboard from TootTally servers
+    # if args.lb:
     with open(args.filename, "r") as file:
         file_hash = sha256(file.read().encode("utf-8")).hexdigest()
     req = r.get(f"https://toottally.com/api/hashcheck/custom/?songHash={file_hash}")
