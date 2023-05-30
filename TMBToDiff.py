@@ -137,12 +137,13 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
     return strain_multiplier
 
 def calc_combo_performance_v2(notes:List[Note], index:int) -> float:
-    LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
+    # LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
+    LENGTH_WEIGHTS = [1, 0.75, 0.5625, 0.4218, 0.3164, 0.2373, 0.1779, 0.1334, 0.1, 0.0751, 0.0563]
     important_notes = [
         n.length * LENGTH_WEIGHTS[i]
         for i, n in enumerate(notes[index:index+10])
     ]
-    strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) / 6.5) + 0.45
+    strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) / 1.25) + 0.05
     logging.info("Sum: %f | Length: %d | Strain MP: %f", sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
 
@@ -164,7 +165,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = abs(note.pitch_delta) / note.length
+            slider_speed = abs(note.pitch_delta) / note.length * 1.65
             curr_dir = np.sign(note.pitch_delta)
             prev_note = None
             prev_note_delta = None
@@ -179,9 +180,9 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 dist = abs(prev_note_delta)
                 t = note.time_start - prev_note.time_end
                 speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
-            elif note.pitch_delta <= SLIDER_BREAK_CONSTANT:
-                # Apply cheesable slider nerf
-                slider_speed /= ((SLIDER_BREAK_CONSTANT * combo_multiplier * 2) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
+                if note.pitch_delta <= SLIDER_BREAK_CONSTANT:
+                    # Apply cheesable slider nerf
+                    slider_speed /= ((SLIDER_BREAK_CONSTANT * 4) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
             
             # Apply direction switch buff
             if curr_dir != 0 and prev_dir == -curr_dir:
@@ -199,8 +200,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             prev_dir = curr_dir
         
         strain_sum = speed_strain + slider_strain
-        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 50000) + 1
-        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 900) + 1
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 37500) + 1
+        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(strain_sum)
@@ -215,7 +216,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 85
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 90
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 90
         
         total_strain = slider_strain + speed_strain
@@ -232,6 +233,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
         strain_value = 1
+        combo_multiplier = calc_combo_performance_v2(notes, current_idx)
         important_notes = [note for note in notes[current_idx+1:current_idx+51] if note.time_start - current_note.time_end <= 8]
         
         for i, note in enumerate(important_notes, start=1):
@@ -241,15 +243,16 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             if prev_note != None and note.time_start > prev_note.time_end and prev_note.pitch_delta == 0:
                 tap_strain += strain_value
                 time_delta = note.time_start - prev_note.time_end
-                strain_value += abs(0.55 - time_delta)
+                weight = math.pow(0.9375, i-1)
+                strain_value += abs(0.45 - time_delta) * weight * 50
 
-        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 18000) + 1
-        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 5000) + 1
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 16000) + 1
+        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 2000) + 1
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(tap_strain)
         tap_strain *= endurance_multiplier
-        tap_strain = np.sqrt(tap_strain * len(important_notes)) / 18
+        tap_strain = np.sqrt(tap_strain * len(important_notes)) / 115
         tap_performance.append(tap_strain)
     
     x = [note.time_start for note in notes]
@@ -272,7 +275,7 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     
-    star_rating = np.average([aim_rating, tap_rating], weights=[2,1])
+    star_rating = np.average([aim_rating, tap_rating], weights=[3,2])
     end_time = time()
     logging.info("Processing took %f seconds", end_time - start_time)
     return [star_rating, aim_rating, tap_rating]

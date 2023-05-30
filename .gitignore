@@ -5,6 +5,7 @@ dist/
 
 # Keeping these files out of the repo to avoid copyright issues with charters
 tmbs/
+<<<<<<< Updated upstream
 testtmbs/
 RatedTmbs/
 
@@ -13,3 +14,8 @@ replays/
 
 *.log
 tests.*
+=======
+RatedTmbs/
+
+*.log
+>>>>>>> Stashed changes
