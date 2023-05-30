@@ -12,8 +12,8 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.1.0"
-GENERATE_GRAPHS = False
+TMB_TO_DIFF_VERSION = "1.2.0"
+GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
     TIME_END = 1
@@ -136,28 +136,29 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
     strain_multiplier = np.sqrt(sum(important_notes) * len(important_notes) + len(important_notes)) / 2.75
     return strain_multiplier
 
+def calc_combo_performance_v2(notes:List[Note], index:int) -> float:
+    LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
+    important_notes = [
+        n.length * LENGTH_WEIGHTS[i]
+        for i, n in enumerate(notes[index:index+10])
+    ]
+    strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) / 6.5) + 0.45
+    logging.info("Sum: %f | Length: %d | Strain MP: %f", sum(important_notes), len(important_notes), strain_multiplier)
+    return strain_multiplier
+
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     SLIDER_BREAK_CONSTANT = 34.375
     MAXIMUM_TIME_CONSTANT = b2s(0.05, bpm)
-    STACCATO_CONSTANT = b2s(0.0625, bpm)
     endurance_multiplier = 0.85
     aim_performance = []
     
-    # Calculate limit for nerfing short notes
-    non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
-    non_tap_ratio = (len(non_tap_notes) / len(notes))
-    average_length = np.average(non_tap_notes)
-    average_nerfs = []
-    TAP_NOTE_NERF = calculate_aim_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
-    logging.info("Stacatto Constant: %f seconds | Average Length: %f | Non-Tap Ratio: %f", STACCATO_CONSTANT, average_length, non_tap_ratio)
     logging.info("BPM: %f", bpm)
     
     for current_idx, current_note in enumerate(notes):
         slider_strain = 0
         speed_strain = 0
         direction_switch_bonus = 1
-        combo_penalty = calc_combo_performance(notes, current_idx)
-        nerf = []
+        combo_multiplier = calc_combo_performance_v2(notes, current_idx)
         prev_dir = 0 # -1 = DOWN, 0 = NOT MOVING, 1 = UP
         important_notes = [note for note in notes[current_idx:current_idx+50] if note.time_start - current_note.time_end <= 5]
         
@@ -165,7 +166,6 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             speed = 0
             slider_speed = abs(note.pitch_delta) / note.length
             curr_dir = np.sign(note.pitch_delta)
-            stacatto_nerf = 1
             prev_note = None
             prev_note_delta = None
             
@@ -181,7 +181,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
             elif note.pitch_delta <= SLIDER_BREAK_CONSTANT:
                 # Apply cheesable slider nerf
-                slider_speed /= ((SLIDER_BREAK_CONSTANT * combo_penalty * 2) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
+                slider_speed /= ((SLIDER_BREAK_CONSTANT * combo_multiplier * 2) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
             
             # Apply direction switch buff
             if curr_dir != 0 and prev_dir == -curr_dir:
@@ -192,14 +192,10 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 direction_switch_bonus *= delta_multiplier
             if direction_switch_bonus > 1.5: # hard cap it to 2
                 direction_switch_bonus = 1.5
-            if note.length < average_length:
-                stacatto_lerp = min((average_length - note.length) / (average_length - STACCATO_CONSTANT), 1)
-                stacatto_nerf = lerp(1, TAP_NOTE_NERF, stacatto_lerp)
-                nerf.append(stacatto_nerf)
             
             weight = math.pow(0.9375, i-1)
-            slider_strain += abs(slider_speed) * weight * direction_switch_bonus * stacatto_nerf * 3
-            speed_strain += speed * weight * direction_switch_bonus * stacatto_nerf * 1.15
+            slider_strain += abs(slider_speed) * weight * direction_switch_bonus
+            speed_strain += speed * weight * direction_switch_bonus
             prev_dir = curr_dir
         
         strain_sum = speed_strain + slider_strain
@@ -210,10 +206,12 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         endurance_multiplier *= endurance_curve(strain_sum)
         
         # Apply combo penalties for the note
-        if combo_penalty < 1.25:
-            slider_strain *= combo_penalty * 1.15
-            speed_strain *= combo_penalty * 1.3
+        # if combo_penalty < 1.25:
+        #     slider_strain *= combo_penalty * 1.15
+        #     speed_strain *= combo_penalty * 1.3
         
+        slider_strain *= combo_multiplier
+        speed_strain *= combo_multiplier
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
@@ -222,22 +220,14 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         total_strain = slider_strain + speed_strain
         aim_performance.append(total_strain)
-        if len(nerf) > 0:
-            average_nerfs.append(np.average(nerf))
+        
     x = [note.time_start for note in notes]
     generate_graph(x, aim_performance, "Time (s)", "Aim Performance", f"{song_name} - Aim")
     return np.average(aim_performance)
 
 def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
-    STACCATO_CONSTANT = b2s(0.0625, bpm)
     endurance_multiplier = 0.85
     tap_performance = []
-    
-    # Calculate limit for nerfing short notes
-    non_tap_notes = [note.length for note in notes if note.length > STACCATO_CONSTANT]
-    non_tap_ratio = (len(non_tap_notes) / len(notes))
-    average_length = np.average(non_tap_notes)
-    TAP_NOTE_NERF = calculate_tap_tap_note_nerf(non_tap_ratio, average_length, STACCATO_CONSTANT) if non_tap_ratio > 0 else 1
     
     for current_idx, current_note in enumerate(notes):
         tap_strain = 0
@@ -249,20 +239,17 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             if current_idx + i > 0:
                 prev_note = notes[current_idx + i - 1]
             if prev_note != None and note.time_start > prev_note.time_end and prev_note.pitch_delta == 0:
-                stacatto_nerf = 1
                 tap_strain += strain_value
                 time_delta = note.time_start - prev_note.time_end
-                if note.length < average_length:
-                    stacatto_lerp = min((average_length - note.length) / (average_length - STACCATO_CONSTANT), 1)
-                    stacatto_nerf *= lerp(1, TAP_NOTE_NERF, stacatto_lerp)
-                strain_value += abs(0.55 - time_delta) * stacatto_nerf
+                strain_value += abs(0.55 - time_delta)
 
         endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 18000) + 1
-        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 900) + 1
+        decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 5000) + 1
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(tap_strain)
-        tap_strain = np.sqrt(tap_strain / 6.2) * endurance_multiplier
+        tap_strain *= endurance_multiplier
+        tap_strain = np.sqrt(tap_strain * len(important_notes)) / 18
         tap_performance.append(tap_strain)
     
     x = [note.time_start for note in notes]
@@ -282,8 +269,8 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     logging.info("Song Length: %f", track_length)
     logging.info("Speed: %f (%f BPM -> %f BPM)", speed, previous_tempo, tmb.tempo)
     
-    aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name)
-    tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name)
+    aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
+    tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     
     star_rating = np.average([aim_rating, tap_rating], weights=[2,1])
     end_time = time()
@@ -355,9 +342,9 @@ def log_leaderboard(filename:str, base_tt:float, max_score:float):
     lb = lb_req.json()
     results = lb["results"]
     leaderboard  = f"Found {lb['count']} scores in the leaderboard right now\n"
-    leaderboard += "+---------+-----------------------+---------------+-------------------+\n"
-    leaderboard += "| Ranking |      Player Name      |     Score     |     TT Rating     |\n"
-    leaderboard += "+---------+-----------------------+---------------+-------------------+\n"
+    leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
+    leaderboard += "| Ranking |      Player Name      | Speed |     Score     |     TT Rating     |\n"
+    leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
     for i, result in enumerate(results, start=1):
         player = result["player"]
         tt = calc_score_tt(base_tt, int(result["score"]), max_score)
@@ -388,13 +375,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Difficulty calculation tool")
     parser.add_argument("filename", metavar="filename", type=str, help="Target .tmb to analyze")
     # parser.add_argument("lb", metavar="lb", type=bool, help="Enable leaderboard calculations")
+    speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
+    speed_diffs = []
     args = parser.parse_args()
-    tmb = read_tmb(args.filename)
-    diff, aim, spd = calc_diff(tmb)
-    max_score, game_max_score = calc_max_score(tmb)
-    base_tt = calc_tt(diff)
-    print(f"{tmb}: {round(diff, 3)} [Aim: {round(aim, 3)}|Speed: {round(spd, 3)}]")
-    print(f"Game Max Score: {game_max_score} | Max Score: {max_score} | Base TT: {base_tt}")
+    for speed in speeds:
+        tmb = read_tmb(args.filename)
+        diff, aim, spd = calc_diff(tmb, speed)
+        max_score, game_max_score = calc_max_score(tmb)
+        speed_diffs.append(diff)
+        base_tt = calc_tt(diff)
+        print(f"{tmb}[{speed:.2f}x]: {round(diff, 3)} [Aim: {round(aim, 3)}|Speed: {round(spd, 3)}]")
+        print(f"Game Max Score: {game_max_score} | Max Score: {max_score} | Base TT: {base_tt}")
     
     # Get leaderboard from TootTally servers
     # if args.lb:
@@ -414,5 +405,17 @@ if __name__ == "__main__":
             print(f"Found {lb['count']} scores in the leaderboard right now")
             results = lb["results"]
             for result in results:
+                replay_speed = result["replay_speed"]
+                star_rating = 1
+                if replay_speed in speeds:
+                    star_rating = speed_diffs[speeds.index(replay_speed)]
+                else:
+                    b_index = next(x[0] for x in enumerate(speeds) if x[1] > float(replay_speed))
+                    a_index = b_index - 1
+                    a = float(speed_diffs[a_index])
+                    b = float(speed_diffs[b_index])
+                    percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
+                    star_rating = lerp(a, b, percentage)
+                base_tt = calc_tt(star_rating)
                 tt = calc_score_tt(base_tt, int(result["score"]), max_score)
-                print(f"{result['player']}: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 4)}tt")
+                print(f"{result['player']} [{replay_speed:.2f}x]: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 4)}tt")

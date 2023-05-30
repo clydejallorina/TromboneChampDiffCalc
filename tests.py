@@ -19,7 +19,7 @@ if __name__ == "__main__":
         for tmb_file in os.listdir(FOLDER):
             if not tmb_file.endswith(".tmb"):
                 continue
-            speeds = [0.5,0.75,1.0,1.25,1.5,2.0]
+            speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
             for speed in speeds:
                 tmb = read_tmb(f"{FOLDER}{tmb_file}")
                 song_name = unicodedata.normalize("NFKC", tmb.short_name)
