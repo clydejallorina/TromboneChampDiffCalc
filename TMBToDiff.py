@@ -165,7 +165,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = abs(note.pitch_delta * 1.5) / note.length 
+            slider_speed = abs(note.pitch_delta * 1.25) / note.length 
             curr_dir = np.sign(note.pitch_delta)
             prev_note = None
             prev_note_delta = None
@@ -198,7 +198,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
             prev_dir = curr_dir
         
         strain_sum = speed_strain + slider_strain
-        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 37500) + 1
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 13000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
@@ -214,7 +214,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 85
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 110
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 80
         
         total_strain = slider_strain + speed_strain
@@ -227,7 +227,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
 def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     endurance_multiplier = 0.85
     tap_performance = []
-    MINIMUM_TIME_CONST = 1/120
+    MINIMUM_TIME_CONST = 1/120 #Because centipete would break the algo :skull:
     
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
