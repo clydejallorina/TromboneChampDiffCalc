@@ -161,7 +161,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         direction_switch_bonus = 1
         combo_multiplier = calc_combo_performance_v2(notes, current_idx)
         prev_dir = 0 # -1 = DOWN, 0 = NOT MOVING, 1 = UP
-        important_notes = [note for note in notes[current_idx:current_idx+50] if note.time_start - current_note.time_end <= 5]
+        important_notes = [note for note in notes[current_idx:current_idx+26] if note.time_start - current_note.time_end <= 5]
         
         for i, note in enumerate(important_notes):
             speed = 0
@@ -177,7 +177,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 # If not a slider, do these calculations
                 prev_note_delta = note.pitch_start - prev_note.pitch_end
                 curr_dir = np.sign(prev_note_delta)
-                dist = abs(prev_note_delta * 1.25)
+                dist = abs(prev_note_delta * 1.50)
                 t = note.time_start - prev_note.time_end
                 speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
                 if note.pitch_delta <= SLIDER_BREAK_CONSTANT:
@@ -192,7 +192,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                     delta_multiplier = (0.2 / (1 + math.pow(math.e, -0.05 * (note.pitch_delta - 40)))) + 1
                 direction_switch_bonus *= delta_multiplier
             
-            weight = math.pow(0.9325, i-1)
+            weight = math.pow(0.9425, i-1)
             slider_strain += abs(slider_speed) * weight * direction_switch_bonus
             speed_strain += speed * weight * direction_switch_bonus * 0.5
             prev_dir = curr_dir
@@ -215,7 +215,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         speed_strain *= endurance_multiplier
         
         slider_strain = np.sqrt(slider_strain * len(important_notes)) / 110
-        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 80
+        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 95
         
         total_strain = slider_strain + speed_strain
         aim_performance.append(total_strain)
@@ -232,7 +232,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
         combo_multiplier = calc_combo_performance_v2(notes, current_idx)
-        important_notes = [note for note in notes[current_idx+1:current_idx+50] if note.time_start - current_note.time_end <= 8]
+        important_notes = [note for note in notes[current_idx+1:current_idx+26] if note.time_start - current_note.time_end <= 8]
         
         for i, note in enumerate(important_notes, start=1):
             prev_note = None
@@ -242,8 +242,8 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 time_delta = note.time_start - prev_note.time_end
                 if time_delta < MINIMUM_TIME_CONST:
                     time_delta = MINIMUM_TIME_CONST
-                weight = math.pow(0.9375, i-1)
-                strain_sum += (10/math.pow(time_delta,1.25)) * weight
+                weight = math.pow(0.9425, i-1)
+                strain_sum += (15/math.pow(time_delta,1.25)) * weight
 
         endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 11000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
