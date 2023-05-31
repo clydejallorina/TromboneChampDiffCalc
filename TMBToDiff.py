@@ -12,7 +12,7 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.2.0"
+TMB_TO_DIFF_VERSION = "1.3.0"
 GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
