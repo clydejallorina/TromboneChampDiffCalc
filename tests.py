@@ -20,16 +20,19 @@ if __name__ == "__main__":
             if not tmb_file.endswith(".tmb"):
                 continue
             speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
+            speed_diffs = []
             for speed in speeds:
                 tmb = read_tmb(f"{FOLDER}{tmb_file}")
                 song_name = unicodedata.normalize("NFKC", tmb.short_name)
                 map_diff = tmb.difficulty
                 diff_calc = calc_diff(tmb, speed)
                 tt_rating = calc_tt(diff_calc[0])
-                max_score, game_max_score = calc_max_score(tmb)
-                # log_leaderboard(FOLDER + tmb_file, tt_rating, max_score)
+                speed_diffs.append(diff_calc[0])
                 print(f"|{song_name[:29]:^29s}| {speed:.3f} | {map_diff:^8d} | {diff_calc[0]:13f} | {diff_calc[2]:12f} | {diff_calc[1]:10f} | {tt_rating:11f} |")
                 writer.writerow([song_name, speed, map_diff, diff_calc[0], diff_calc[2], diff_calc[1], tt_rating])
+            tmb = read_tmb(f"{FOLDER}{tmb_file}")
+            max_score, game_max_score = calc_max_score(tmb)
+            log_leaderboard(FOLDER + tmb_file, speed_diffs, max_score)
         print("+-----------------------------+-------+----------+---------------+--------------+------------+-------------+")
     end_time = time.time()
     print(f"Report generated at {time.asctime(time.gmtime())}")

@@ -144,7 +144,7 @@ def calc_combo_performance_v2(notes:List[Note], index:int) -> float:
         for i, n in enumerate(notes[index:index+10])
     ]
     strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) / 1.25) + 0.05
-    logging.info("Sum: %f | Length: %d | Strain MP: %f", sum(important_notes), len(important_notes), strain_multiplier)
+    # logging.info("Sum: %f | Length: %d | Strain MP: %f", sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
 
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
@@ -329,7 +329,22 @@ def get_letter_from_score(score:int, game_max_score:int):
         return "D"
     return "F"
 
-def log_leaderboard(filename:str, base_tt:float, max_score:float):
+def calc_tt_with_speed(speed_diffs:List[float], replay_speed:float, score:int, max_score:int):
+    speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
+    star_rating = 1
+    if replay_speed in speeds:
+        star_rating = speed_diffs[speeds.index(replay_speed)]
+    else:
+        b_index = next(x[0] for x in enumerate(speeds) if x[1] > float(replay_speed))
+        a_index = b_index - 1
+        a = float(speed_diffs[a_index])
+        b = float(speed_diffs[b_index])
+        percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
+        star_rating = lerp(a, b, percentage)
+    base_tt = calc_tt(star_rating)
+    return calc_score_tt(base_tt, int(score), max_score)
+
+def log_leaderboard(filename:str, speed_diffs:List[float], max_score:float):
     # Get leaderboard from TootTally servers
     with open(filename, "r", encoding="utf-8") as file:
         file_hash = sha256(file.read().encode("utf-8")).hexdigest()
@@ -343,15 +358,17 @@ def log_leaderboard(filename:str, base_tt:float, max_score:float):
         logging.info("Cannot obtain leaderboard data, stopping.")
     lb = lb_req.json()
     results = lb["results"]
-    leaderboard  = f"Found {lb['count']} scores in the leaderboard right now\n"
+    leaderboard  = f"Found {lb['count']} scores in the leaderboard right now (Max Score: {max_score})\n"
     leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
     leaderboard += "| Ranking |      Player Name      | Speed |     Score     |     TT Rating     |\n"
     leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
     for i, result in enumerate(results, start=1):
         player = result["player"]
-        tt = calc_score_tt(base_tt, int(result["score"]), max_score)
-        leaderboard += f"|{i:^9d}|{player:^23s}|{result['score']:^15d}|{tt:19f}|\n"
-    leaderboard += "+---------+-----------------------+---------------+-------------------+\n"
+        score = int(result["score"])
+        replay_speed = float(result["replay_speed"])
+        tt = calc_tt_with_speed(speed_diffs, replay_speed, score, max_score)
+        leaderboard += f"|{i:^9d}|{player:^23s}| {replay_speed:^.2f}x |{result['score']:^15d}|{tt:19f}|\n"
+    leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
         
     logging.info(leaderboard)
     
@@ -408,16 +425,5 @@ if __name__ == "__main__":
             results = lb["results"]
             for result in results:
                 replay_speed = result["replay_speed"]
-                star_rating = 1
-                if replay_speed in speeds:
-                    star_rating = speed_diffs[speeds.index(replay_speed)]
-                else:
-                    b_index = next(x[0] for x in enumerate(speeds) if x[1] > float(replay_speed))
-                    a_index = b_index - 1
-                    a = float(speed_diffs[a_index])
-                    b = float(speed_diffs[b_index])
-                    percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
-                    star_rating = lerp(a, b, percentage)
-                base_tt = calc_tt(star_rating)
-                tt = calc_score_tt(base_tt, int(result["score"]), max_score)
+                tt = calc_tt_with_speed(speed_diffs, replay_speed, int(result["score"]), max_score)
                 print(f"{result['player']} [{replay_speed:.2f}x]: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 4)}tt")
