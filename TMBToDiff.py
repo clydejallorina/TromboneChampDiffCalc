@@ -143,8 +143,10 @@ def calc_combo_performance_v2(notes:List[Note], index:int) -> float:
         n.length * LENGTH_WEIGHTS[i]
         for i, n in enumerate(notes[index:index+10])
     ]
-    strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) / 1.25) + 0.05
-    # logging.info("Sum: %f | Length: %d | Strain MP: %f", sum(important_notes), len(important_notes), strain_multiplier)
+    note_lengths = [note.length for note in notes]
+    average_note_length_mult = .85 / (np.average(note_lengths) * 5) * (sum(important_notes) + 0.2)
+    strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) * average_note_length_mult) + 0.05
+    logging.info("LenAvg: %f | Mult: %f | Sum: %f | Length: %d | Strain MP: %f", np.average(note_lengths), average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
 
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
