@@ -12,8 +12,8 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.3.0"
-GENERATE_GRAPHS = True
+TMB_TO_DIFF_VERSION = "1.3.1"
+GENERATE_GRAPHS = False
 class NoteData(Enum):
     TIME_START = 0
     TIME_END = 1
@@ -145,7 +145,7 @@ def calc_combo_performance_v2(notes:List[Note], index:int, average_note_length_m
     ]
     
     strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) * average_note_length_mult) + 0.05
-    logging.info("Mult: %f | Sum: %f | Length: %d | Strain MP: %f", average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
+    #logging.info("Mult: %f | Sum: %f | Length: %d | Strain MP: %f", average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
 
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
@@ -153,8 +153,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     MAXIMUM_TIME_CONSTANT = b2s(0.05, bpm)
     endurance_multiplier = 0.85
     aim_performance = []
-    note_lengths = [note.length for note in notes]
-    average_note_length_mult = .85 / (np.average(note_lengths) * 14) #I was doing this
+    note_len_avr = sum([note.length for note in notes]) / len(notes)
+    average_note_length_mult = .85 / (note_len_avr * 14) #I was doing this
 
     logging.info("BPM: %f", bpm)
     
@@ -231,8 +231,8 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     endurance_multiplier = 0.85
     tap_performance = []
     MINIMUM_TIME_CONST = 1/120 #Because centipete would break the algo :skull:
-    note_lengths = [note.length for note in notes]
-    average_note_length_mult = .85 / (np.average(note_lengths) * 12) #I was doing this
+    note_len_avr = sum([note.length for note in notes]) / len(notes)
+    average_note_length_mult = .85 / (note_len_avr * 12) #I was doing this
     
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
