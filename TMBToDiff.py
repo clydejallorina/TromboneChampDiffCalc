@@ -143,7 +143,6 @@ def calc_combo_performance_v2(notes:List[Note], index:int, average_note_length_m
         n.length * LENGTH_WEIGHTS[i]
         for i, n in enumerate(notes[index:index+10])
     ]
-    
     strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) * average_note_length_mult) + 0.05
     #logging.info("Mult: %f | Sum: %f | Length: %d | Strain MP: %f", average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
@@ -154,7 +153,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     endurance_multiplier = 0.85
     aim_performance = []
     note_len_avr = sum([note.length for note in notes]) / len(notes)
-    average_note_length_mult = .85 / (note_len_avr * 14) #I was doing this
+    average_note_length_mult = 1.75 / (note_len_avr * 30) #I was doing this
 
     logging.info("BPM: %f", bpm)
     
@@ -168,7 +167,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = abs(note.pitch_delta * 1.25) / note.length 
+            slider_speed = abs(note.pitch_delta * 2.85) / note.length 
             curr_dir = np.sign(note.pitch_delta)
             prev_note = None
             prev_note_delta = None
@@ -185,7 +184,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
                 if note.pitch_delta <= SLIDER_BREAK_CONSTANT:
                     # Apply cheesable slider nerf
-                    slider_speed /= ((SLIDER_BREAK_CONSTANT * 4) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
+                    slider_speed /= ((SLIDER_BREAK_CONSTANT * 3) - note.pitch_delta) / SLIDER_BREAK_CONSTANT
             
             # Apply direction switch buff
             if curr_dir != 0 and prev_dir == -curr_dir:
@@ -217,7 +216,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 110
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 95
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 95
         
         total_strain = slider_strain + speed_strain
