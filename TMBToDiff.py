@@ -136,17 +136,16 @@ def calc_combo_performance(notes:List[Note], index:int) -> float:
     strain_multiplier = np.sqrt(sum(important_notes) * len(important_notes) + len(important_notes)) / 2.75
     return strain_multiplier
 
-def calc_combo_performance_v2(notes:List[Note], index:int) -> float:
+def calc_combo_performance_v2(notes:List[Note], index:int, average_note_length_mult:float) -> float:
     # LENGTH_WEIGHTS = [1, 0.65, 0.4225, 0.274625, 0.17850625, 0.1160290625, 0.075418890625, 0.04902227890625, 0.0318644812890625, 0.02071191283789063, 0.013462743344628911]
     LENGTH_WEIGHTS = [1, 0.75, 0.5625, 0.4218, 0.3164, 0.2373, 0.1779, 0.1334, 0.1, 0.0751, 0.0563]
     important_notes = [
         n.length * LENGTH_WEIGHTS[i]
         for i, n in enumerate(notes[index:index+10])
     ]
-    note_lengths = [note.length for note in notes]
-    average_note_length_mult = .85 / (np.average(note_lengths) * 5) * (sum(important_notes) + 0.2)
+    
     strain_multiplier = (np.cbrt((sum(important_notes) - 1) * len(important_notes) + len(important_notes)) * average_note_length_mult) + 0.05
-    logging.info("LenAvg: %f | Mult: %f | Sum: %f | Length: %d | Strain MP: %f", np.average(note_lengths), average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
+    logging.info("Mult: %f | Sum: %f | Length: %d | Strain MP: %f", average_note_length_mult, sum(important_notes), len(important_notes), strain_multiplier)
     return strain_multiplier
 
 def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
@@ -154,14 +153,16 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     MAXIMUM_TIME_CONSTANT = b2s(0.05, bpm)
     endurance_multiplier = 0.85
     aim_performance = []
-    
+    note_lengths = [note.length for note in notes]
+    average_note_length_mult = .85 / (np.average(note_lengths) * 14) #I was doing this
+
     logging.info("BPM: %f", bpm)
     
     for current_idx, current_note in enumerate(notes):
         slider_strain = 0
         speed_strain = 0
         direction_switch_bonus = 1
-        combo_multiplier = calc_combo_performance_v2(notes, current_idx)
+        combo_multiplier = calc_combo_performance_v2(notes, current_idx, average_note_length_mult)
         prev_dir = 0 # -1 = DOWN, 0 = NOT MOVING, 1 = UP
         important_notes = [note for note in notes[current_idx:current_idx+26] if note.time_start - current_note.time_end <= 5]
         
@@ -230,10 +231,12 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     endurance_multiplier = 0.85
     tap_performance = []
     MINIMUM_TIME_CONST = 1/120 #Because centipete would break the algo :skull:
+    note_lengths = [note.length for note in notes]
+    average_note_length_mult = .85 / (np.average(note_lengths) * 12) #I was doing this
     
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
-        combo_multiplier = calc_combo_performance_v2(notes, current_idx)
+        combo_multiplier = calc_combo_performance_v2(notes, current_idx, average_note_length_mult)
         important_notes = [note for note in notes[current_idx+1:current_idx+26] if note.time_start - current_note.time_end <= 8]
         
         for i, note in enumerate(important_notes, start=1):
