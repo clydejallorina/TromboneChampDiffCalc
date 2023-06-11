@@ -167,7 +167,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = abs(note.pitch_delta * 2.85) / note.length 
+            slider_speed = abs(note.pitch_delta * 1.85) / note.length 
             curr_dir = np.sign(note.pitch_delta)
             prev_note = None
             prev_note_delta = None
@@ -216,7 +216,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 95
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 100
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 95
         
         total_strain = slider_strain + speed_strain
@@ -310,6 +310,14 @@ def calc_score_tt(base_tt:float, player_score:float, max_score:float) -> float:
         return ((3 * (percentage ** 5.6)) + (0.165545 * percentage)) * base_tt
     return ((0.4 * math.pow(math.e, 28.1 * (percentage - 0.9))) + 1.4470081) * base_tt
 
+def calc_score_ttV2(base_tt:float, player_score:float, max_score:float) -> float:
+    percentage = player_score / max_score
+    if percentage < 0:
+        return 0
+    return ((0.0004 * math.pow(math.e, 9.727 * percentage)) - 0.0004) * base_tt
+    
+
+
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
 
@@ -353,6 +361,21 @@ def calc_tt_with_speed(speed_diffs:List[float], replay_speed:float, score:int, m
         star_rating = lerp(a, b, percentage)
     base_tt = calc_tt(star_rating)
     return calc_score_tt(base_tt, int(score), max_score)
+
+def calc_tt_with_speedV2(speed_diffs:List[float], replay_speed:float, score:int, max_score:int):
+    speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
+    star_rating = 1
+    if replay_speed in speeds:
+        star_rating = speed_diffs[speeds.index(replay_speed)]
+    else:
+        b_index = next(x[0] for x in enumerate(speeds) if x[1] > float(replay_speed))
+        a_index = b_index - 1
+        a = float(speed_diffs[a_index])
+        b = float(speed_diffs[b_index])
+        percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
+        star_rating = lerp(a, b, percentage)
+    base_tt = calc_tt(star_rating)
+    return calc_score_ttV2(base_tt, int(score), max_score)
 
 def log_leaderboard(filename:str, speed_diffs:List[float], max_score:float):
     # Get leaderboard from TootTally servers
@@ -436,4 +459,5 @@ if __name__ == "__main__":
             for result in results:
                 replay_speed = result["replay_speed"]
                 tt = calc_tt_with_speed(speed_diffs, replay_speed, int(result["score"]), max_score)
-                print(f"{result['player']} [{replay_speed:.2f}x]: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 4)}tt")
+                ttV2 = calc_tt_with_speedV2(speed_diffs, replay_speed, int(result["score"]), max_score)
+                print(f"{result['player']} [{replay_speed:.2f}x]: {round((result['score'] / max_score) * 100, 2)}% - {round(tt, 2)}tt - {round(ttV2, 2)}tt")
