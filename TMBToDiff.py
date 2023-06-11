@@ -231,7 +231,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     tap_performance = []
     MINIMUM_TIME_CONST = 1/120 #Because centipete would break the algo :skull:
     note_len_avr = sum([note.length for note in notes]) / len(notes)
-    average_note_length_mult = .85 / (note_len_avr * 12) #I was doing this
+    average_note_length_mult = 1.75 / (note_len_avr * 30) #I was doing this
     
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
@@ -249,7 +249,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 weight = math.pow(0.9425, i-1)
                 strain_sum += (15/math.pow(time_delta,1.25)) * weight
 
-        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 11000) + 1
+        endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 13000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
