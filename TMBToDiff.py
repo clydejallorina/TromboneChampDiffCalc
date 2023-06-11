@@ -163,7 +163,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         direction_switch_bonus = 1
         combo_multiplier = calc_combo_performance_v2(notes, current_idx, average_note_length_mult)
         prev_dir = 0 # -1 = DOWN, 0 = NOT MOVING, 1 = UP
-        important_notes = [note for note in notes[current_idx:current_idx+26] if note.time_start - current_note.time_end <= 5]
+        important_notes = [note for note in notes[current_idx:current_idx+26] if note.time_start - current_note.time_end <= 4]
         
         for i, note in enumerate(important_notes):
             speed = 0
@@ -194,7 +194,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                     delta_multiplier = (0.2 / (1 + math.pow(math.e, -0.05 * (note.pitch_delta - 40)))) + 1
                 direction_switch_bonus *= delta_multiplier
             
-            weight = math.pow(0.9425, i-1)
+            weight = math.pow(0.945, i-1)
             slider_strain += abs(slider_speed) * weight * direction_switch_bonus
             speed_strain += speed * weight * direction_switch_bonus * 0.5
             prev_dir = curr_dir
@@ -231,7 +231,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
     for current_idx, current_note in enumerate(notes):
         strain_sum = 0
         combo_multiplier = calc_combo_performance_v2(notes, current_idx, average_note_length_mult)
-        important_notes = [note for note in notes[current_idx+1:current_idx+26] if note.time_start - current_note.time_end <= 8]
+        important_notes = [note for note in notes[current_idx+1:current_idx+26] if note.time_start - current_note.time_end <= 4]
         
         for i, note in enumerate(important_notes, start=1):
             prev_note = None
@@ -241,8 +241,8 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 time_delta = note.time_start - prev_note.time_end
                 if time_delta < MINIMUM_TIME_CONST:
                     time_delta = MINIMUM_TIME_CONST
-                weight = math.pow(0.9425, i-1)
-                strain_sum += (5/math.pow(time_delta,1.65)) * weight
+                weight = math.pow(0.945, i-1)
+                strain_sum += (25/math.pow(time_delta,1.20)) * weight
 
         endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 13000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
