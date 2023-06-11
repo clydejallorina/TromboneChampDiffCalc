@@ -278,11 +278,14 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     
-    total_rating = aim_rating + tap_rating
-    aim_perc = aim_rating / total_rating
-    tap_perc = tap_rating / total_rating
-    aim_weight = (aim_perc + 0.25) * 1.2
-    tap_weight = (tap_perc + 0.25)
+    if (aim_rating and tap_rating != None):
+        total_rating = aim_rating + tap_rating
+        aim_perc = aim_rating / total_rating
+        tap_perc = tap_rating / total_rating
+        aim_weight = (aim_perc + 0.25) * 1.2
+        tap_weight = (tap_perc + 0.25)
+    else:
+        aim_weight = tap_weight = 1
 
     star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight])
     end_time = time()
@@ -399,7 +402,7 @@ def log_leaderboard(filename:str, speed_diffs:List[float], max_score:float):
         player = result["player"]
         score = int(result["score"])
         replay_speed = float(result["replay_speed"])
-        tt = calc_tt_with_speed(speed_diffs, replay_speed, score, max_score)
+        tt = calc_tt_with_speedV2(speed_diffs, replay_speed, score, max_score)
         leaderboard += f"|{i:^9d}|{player:^23s}| {replay_speed:^.2f}x |{result['score']:^15d}|{tt:19f}|\n"
     leaderboard += "+---------+-----------------------+-------+---------------+-------------------+\n"
         
