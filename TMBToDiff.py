@@ -13,7 +13,7 @@ import requests as r
 import matplotlib.pyplot as plt
 
 TMB_TO_DIFF_VERSION = "1.3.1"
-GENERATE_GRAPHS = False
+GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
     TIME_END = 1
@@ -278,7 +278,13 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     aim_rating = calc_aim_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     tap_rating = calc_tap_rating_v2(converted, tmb.tempo, tmb.short_name + f"[{speed:.2f}x]")
     
-    star_rating = np.average([aim_rating, tap_rating], weights=[3,2])
+    total_rating = aim_rating + tap_rating
+    aim_perc = aim_rating / total_rating
+    tap_perc = tap_rating / total_rating
+    aim_weight = (aim_perc + 0.25) * 1.2
+    tap_weight = (tap_perc + 0.25)
+
+    star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight])
     end_time = time()
     logging.info("Processing took %f seconds", end_time - start_time)
     return [star_rating, aim_rating, tap_rating]
