@@ -167,7 +167,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         
         for i, note in enumerate(important_notes):
             speed = 0
-            slider_speed = abs(note.pitch_delta * 1.85) / note.length 
+            slider_speed = abs(note.pitch_delta * 1.80) / note.length 
             curr_dir = np.sign(note.pitch_delta)
             prev_note = None
             prev_note_delta = None
@@ -179,7 +179,7 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 # If not a slider, do these calculations
                 prev_note_delta = note.pitch_start - prev_note.pitch_end
                 curr_dir = np.sign(prev_note_delta)
-                dist = abs(prev_note_delta * 1.50)
+                dist = abs(prev_note_delta * 1.40)
                 t = note.time_start - prev_note.time_end
                 speed = dist / abs(max([t, MAXIMUM_TIME_CONSTANT]))
                 if note.pitch_delta <= SLIDER_BREAK_CONSTANT:
@@ -205,18 +205,13 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         if endurance_multiplier >= 1:
             endurance_multiplier /= decay_curve(endurance_multiplier)
         endurance_multiplier *= endurance_curve(strain_sum)
-        
-        # Apply combo penalties for the note
-        # if combo_penalty < 1.25:
-        #     slider_strain *= combo_penalty * 1.15
-        #     speed_strain *= combo_penalty * 1.3
-        
+
         slider_strain *= combo_multiplier
         speed_strain *= combo_multiplier
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 100
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 88
         speed_strain = np.sqrt(speed_strain * len(important_notes)) / 95
         
         total_strain = slider_strain + speed_strain
@@ -247,7 +242,7 @@ def calc_tap_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
                 if time_delta < MINIMUM_TIME_CONST:
                     time_delta = MINIMUM_TIME_CONST
                 weight = math.pow(0.9425, i-1)
-                strain_sum += (15/math.pow(time_delta,1.25)) * weight
+                strain_sum += (5/math.pow(time_delta,1.65)) * weight
 
         endurance_curve = lambda x: (math.pow(x, 1 / 2.5) / 13000) + 1
         decay_curve = lambda x: (math.pow(x - 0.9, 1 / 2.5) / 800) + 1
