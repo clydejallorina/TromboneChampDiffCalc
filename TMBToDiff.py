@@ -309,12 +309,11 @@ def calc_score_tt(base_tt:float, player_score:float, max_score:float) -> float:
     return ((0.4 * math.pow(math.e, 28.1 * (percentage - 0.9))) + 1.4470081) * base_tt
 
 def calc_score_ttV2(base_tt:float, player_score:float, max_score:float) -> float:
+    # Code derived from https://www.desmos.com/calculator/a528jwgmrq
     percentage = player_score / max_score
     if percentage < 0:
         return 0
-    return ((0.0004 * math.pow(math.e, 9.727 * percentage)) - 0.0004) * base_tt
-    
-
+    return ((0.000417263 * math.pow(math.e, 9.72776 * percentage)) - 0.000417263) * base_tt
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
@@ -374,6 +373,38 @@ def calc_tt_with_speedV2(speed_diffs:List[float], replay_speed:float, score:int,
         star_rating = lerp(a, b, percentage)
     base_tt = calc_tt(star_rating)
     return calc_score_ttV2(base_tt, int(score), max_score)
+
+def calc_speed_diffs(tmb_file: str) -> dict:
+    # Helper function to centralize difficulty calculations per speed
+    speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    speed_diffs = []
+    speed_aim_rating = []
+    speed_tap_rating = []
+    base_diff = 0
+    base_base_tt = 0
+    base_aim = 0
+    base_tap = 0
+    for speed in speeds:
+        # TODO: Figure out a way to keep on recalculating this while keeping the original TMB immutable
+        tmb = json_to_tmb(tmb_file)
+        diff = calc_diff(tmb, speed)
+        base_tt = calc_tt(diff[0])
+        if speed == 1.0: # base stats
+            base_diff = diff[0]
+            base_base_tt = base_tt
+            base_aim = diff[1]
+            base_tap = diff[2]
+        speed_diffs.append(diff[0])
+        speed_aim_rating.append(diff[1])
+        speed_tap_rating.append(diff[2])
+    return {
+        "speed_aim_rating": speed_aim_rating,
+        "speed_tap_rating": speed_tap_rating,
+        "base_diff": base_diff,
+        "base_tt": base_base_tt,
+        "base_aim": base_aim,
+        "base_tap": base_tap,
+    }
 
 def log_leaderboard(filename:str, speed_diffs:List[float], max_score:float):
     # Get leaderboard from TootTally servers
