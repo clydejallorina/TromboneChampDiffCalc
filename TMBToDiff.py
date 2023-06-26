@@ -211,8 +211,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
         slider_strain *= endurance_multiplier
         speed_strain *= endurance_multiplier
         
-        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 88
-        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 95
+        slider_strain = np.sqrt(slider_strain * len(important_notes)) / 87
+        speed_strain = np.sqrt(speed_strain * len(important_notes)) / 90
         
         total_strain = slider_strain + speed_strain
         aim_performance.append(total_strain)
@@ -282,7 +282,7 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     else:
         aim_weight = tap_weight = 1
 
-    star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight])
+    star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight]) * 1.35
     end_time = time()
     logging.info("Processing took %f seconds", end_time - start_time)
     return [star_rating, aim_rating, tap_rating]
@@ -314,6 +314,14 @@ def calc_score_ttV2(base_tt:float, player_score:float, max_score:float) -> float
     if percentage < 0:
         return 0
     return ((0.000417263 * math.pow(math.e, 9.72776 * percentage)) - 0.000417263) * base_tt
+
+def calc_score_ttV3(base_tt:float, player_score:float, max_score:float) -> float:
+    # Code derived from https://www.desmos.com/calculator/a528jwgmrq
+    percentage = player_score / max_score
+    if percentage < 0:
+        return 0
+    return ((0.0080042 * math.pow(math.e, 6.90823 * percentage)) - 0.0080042) * base_tt
+
 
 def process_tmb(filename:str) -> float:
     return calc_diff(read_tmb(filename))
@@ -356,8 +364,8 @@ def calc_tt_with_speed(speed_diffs:List[float], replay_speed:float, score:int, m
         b = float(speed_diffs[b_index])
         percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
         star_rating = lerp(a, b, percentage)
-    base_tt = calc_tt(star_rating)
-    return calc_score_tt(base_tt, int(score), max_score)
+    base_tt = calc_tt(star_rating) / 2
+    return calc_score_ttV2(base_tt, int(score), max_score)
 
 def calc_tt_with_speedV2(speed_diffs:List[float], replay_speed:float, score:int, max_score:int):
     speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
@@ -371,8 +379,8 @@ def calc_tt_with_speedV2(speed_diffs:List[float], replay_speed:float, score:int,
         b = float(speed_diffs[b_index])
         percentage = 1 - ((speeds[b_index] - float(replay_speed)) / (speeds[b_index] - speeds[a_index]))
         star_rating = lerp(a, b, percentage)
-    base_tt = calc_tt(star_rating)
-    return calc_score_ttV2(base_tt, int(score), max_score)
+    base_tt = calc_tt(star_rating) / 2
+    return calc_score_ttV3(base_tt, int(score), max_score)
 
 def calc_speed_diffs(tmb_file: str) -> dict:
     # Helper function to centralize difficulty calculations per speed
@@ -388,7 +396,7 @@ def calc_speed_diffs(tmb_file: str) -> dict:
         # TODO: Figure out a way to keep on recalculating this while keeping the original TMB immutable
         tmb = json_to_tmb(tmb_file)
         diff = calc_diff(tmb, speed)
-        base_tt = calc_tt(diff[0])
+        base_tt = calc_tt(diff[0]) / 2
         if speed == 1.0: # base stats
             base_diff = diff[0]
             base_base_tt = base_tt
