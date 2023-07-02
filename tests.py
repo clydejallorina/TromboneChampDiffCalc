@@ -4,6 +4,8 @@ import logging
 import time
 import unicodedata
 import csv
+import copy
+import multiprocessing as mp
 
 if __name__ == "__main__":
     LOGGER_FORMAT = "[%(asctime)s] %(message)s"
@@ -13,6 +15,8 @@ if __name__ == "__main__":
     with open("tests.csv", "w", encoding="utf-8", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["Song Name", "Speed", "Map Diff", "Computed Diff", "Tap Rating", "Aim Rating", "TT Rating"])
+        print(f"Generating difficulty calculations for TootTally TTv{TMB_TO_DIFF_VERSION}")
+        print(f"Report started at {time.asctime(time.gmtime())}")
         print("+-----------------------------+-------+----------+---------------+--------------+------------+-------------+")
         print("|          Song Name          | Speed | Map Diff | Computed Diff |  Tap Rating  | Aim Rating |  TT Rating  |")
         print("+-----------------------------+-------+----------+---------------+--------------+------------+-------------+")
@@ -20,19 +24,22 @@ if __name__ == "__main__":
             if not tmb_file.endswith(".tmb"):
                 continue
             speeds = [0.5,0.75,1.0,1.25,1.5,1.75,2.0]
-            speed_diffs = []
-            for speed in speeds:
+            with mp.Pool(7) as pool:
                 tmb = read_tmb(f"{FOLDER}{tmb_file}")
-                song_name = unicodedata.normalize("NFKC", tmb.short_name)
-                map_diff = tmb.difficulty
-                diff_calc = calc_diff(tmb, speed)
-                tt_rating = calc_tt(diff_calc[0])
-                speed_diffs.append(diff_calc[0])
-                print(f"|{song_name[:29]:^29s}| {speed:.3f} | {map_diff:^8d} | {diff_calc[0]:13f} | {diff_calc[2]:12f} | {diff_calc[1]:10f} | {tt_rating:11f} |")
-                writer.writerow([song_name, speed, map_diff, diff_calc[0], diff_calc[2], diff_calc[1], tt_rating])
-            tmb = read_tmb(f"{FOLDER}{tmb_file}")
-            max_score, game_max_score = calc_max_score(tmb)
-            log_leaderboard(FOLDER + tmb_file, speed_diffs, max_score)
+                speed_diffs = []
+                diff_calcs = pool.starmap(calc_diff, [(copy.deepcopy(tmb), speed) for speed in speeds])
+                for i, speed in enumerate(speeds):
+                    song_name = unicodedata.normalize("NFKC", tmb.short_name)
+                    map_diff = tmb.difficulty
+                    diff_calc = diff_calcs[i]
+                    tt_rating = calc_tt(diff_calc[0])
+                    speed_diffs.append(diff_calc[0])
+                    print(f"|{song_name[:29]:^29s}| {speed:.3f} | {map_diff:^8d} | {diff_calc[0]:13f} | {diff_calc[2]:12f} | {diff_calc[1]:10f} | {tt_rating:11f} |")
+                    writer.writerow([song_name, speed, map_diff, diff_calc[0], diff_calc[2], diff_calc[1], tt_rating])
+                tmb = read_tmb(f"{FOLDER}{tmb_file}")
+                max_score, game_max_score = calc_max_score(tmb)
+                logging.info(f"Leaderboard for {song_name}:")
+                log_leaderboard(FOLDER + tmb_file, speed_diffs, max_score)
         print("+-----------------------------+-------+----------+---------------+--------------+------------+-------------+")
     end_time = time.time()
     print(f"Report generated at {time.asctime(time.gmtime())}")

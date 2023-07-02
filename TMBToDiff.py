@@ -12,7 +12,7 @@ from hashlib import sha256
 import requests as r
 import matplotlib.pyplot as plt
 
-TMB_TO_DIFF_VERSION = "1.3.1"
+TMB_TO_DIFF_VERSION = "1.4.0"
 GENERATE_GRAPHS = True
 class NoteData(Enum):
     TIME_START = 0
@@ -157,6 +157,8 @@ def calc_aim_rating_v2(notes:List[Note], bpm:float, song_name:str) -> float:
 
     logging.info("BPM: %f", bpm)
     
+    # TODO: Parallelize this bit, they're independent of each other and the order they finish in
+    #       does NOT matter to the final values.
     for current_idx, current_note in enumerate(notes):
         slider_strain = 0
         speed_strain = 0
@@ -282,7 +284,8 @@ def calc_diff(tmb:Optional[TMBChart], speed:float=1) -> list:
     else:
         aim_weight = tap_weight = 1
 
-    star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight]) * 1.35
+    star_rating = np.average([aim_rating, tap_rating], weights=[aim_weight,tap_weight])
+    star_rating *= lerp(1.35, 1, star_rating / 4.5) if star_rating <= 4.5 else 1
     end_time = time()
     logging.info("Processing took %f seconds", end_time - start_time)
     return [star_rating, aim_rating, tap_rating]
@@ -413,6 +416,11 @@ def calc_speed_diffs(tmb_file: str) -> dict:
         "base_aim": base_aim,
         "base_tap": base_tap,
     }
+    
+def convert_star_rating_to_base_game_rating(star_rating: float) -> float:
+    # This is really just assuming that the hardest of the hard charts that the base game
+    # will ever have is around 4 stars on TootTally rating :/
+    return star_rating * 2.5
 
 def log_leaderboard(filename:str, speed_diffs:List[float], max_score:float):
     # Get leaderboard from TootTally servers
